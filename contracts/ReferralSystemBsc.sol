@@ -46,6 +46,24 @@ contract ReferralSystemBsc is Ownable, Pausable {
         20,
         10
     ];
+    uint256[] public binLevelRate = [
+        0,
+        600,
+        600,
+        700,
+        700,
+        700,
+        800,
+        800,
+        900,
+        900,
+        1000,
+        1000,
+        1100,
+        1100,
+        1200,
+        1200
+    ];
 
     address public wallet;
 
@@ -73,7 +91,7 @@ contract ReferralSystemBsc is Ownable, Pausable {
 
         // binary sistem
         tree.start = 0;
-        tree.upLimit = 3;
+        tree.upLimit = 0; // 0 - unlimit
         tree.root = address(this);
         tree.count++;
         tree.ids[tree.count] = tree.root;
@@ -133,10 +151,13 @@ contract ReferralSystemBsc is Ownable, Pausable {
         }
 
         tree.addNodeMyStats(_msgSender(), value);
-        tree.payReferral(_msgSender(), value);
+        uint256 refPaid = tree.payReferral(_msgSender(), value);
 
         if (wallet != address(0)) {
-            //payable(wallet).transfer(balance());
+            //  (100*6000) / 10000 = 60%
+            uint256 valueOut = (value * 6000) / DECIMALS;
+            if ((value - refPaid) < valueOut) valueOut = value - refPaid;
+            payable(wallet).transfer(valueOut);
         }
     }
 
@@ -161,11 +182,35 @@ contract ReferralSystemBsc is Ownable, Pausable {
         series[nextLevel]--;
         tree.setNodeLevel(_msgSender(), nextLevel);
         tree.addNodeMyStats(_msgSender(), difference);
-        tree.payReferral(_msgSender(), difference);
+        uint256 refPaid = tree.payReferral(_msgSender(), difference);
 
         if (wallet != address(0)) {
-            //payable(wallet).transfer(balance());
+            //  (100*6000) / 10000 = 60%
+            uint256 valueOut = (difference * 6000) / DECIMALS;
+            if ((difference - refPaid) < valueOut)
+                valueOut = difference - refPaid;
+            payable(wallet).transfer(valueOut);
         }
+    }
+
+    function claimBinaryRewards(uint256 day) external whenNotPaused {
+        BinaryTreeLib.Node storage gn = tree.nodes[_msgSender()];
+
+        gn.stats[day].left;
+        gn.stats[day].right;
+        uint256 value = tree.min(gn.stats[day].left, gn.stats[day].right);
+        uint256 rate = binLevelRate[gn.level];
+        value = (value * rate) / DECIMALS;
+        uint256 paid = value - tree.nodes[_msgSender()].rewards[day].bin;
+        payable(_msgSender()).transfer(paid);
+
+        // node stats
+        tree.nodes[_msgSender()].rewardsTotal.bin += paid;
+        tree.nodes[_msgSender()].rewards[day].bin += paid;
+
+        // tree stats
+        tree.rewardsTotal.bin += paid;
+        tree.rewards[day].bin += paid;
     }
 
     function setTreeNodeDirection(BinaryTreeLib.Direction direction) external {

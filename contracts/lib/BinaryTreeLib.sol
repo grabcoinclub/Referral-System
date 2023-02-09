@@ -442,4 +442,13 @@ library BinaryTreeLib {
             S += data[i];
         }
     }
+
+    function min(
+        Tree storage self,
+        uint256 a,
+        uint256 b
+    ) internal pure returns (uint256) {
+        if (a < b) return a;
+        else return b;
+    }
 }

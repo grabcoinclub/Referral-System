@@ -61,7 +61,7 @@ contract ReferralSystemPolygon is Ownable, Pausable {
     constructor() public {
         //, uint256[][] memory refLevelRate
         tree.start = 0;
-        tree.upLimit = 3;
+        tree.upLimit = 0; // 0 - unlimit
         tree.root = address(this);
         tree.count++;
         tree.ids[tree.count] = tree.root;
