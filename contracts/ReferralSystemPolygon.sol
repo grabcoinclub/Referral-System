@@ -5,10 +5,10 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./lib/ReferralTreeLib.sol";
+import "./lib/BinaryTreeLib.sol";
 
 contract ReferralSystemPolygon is Ownable, Pausable {
-    using Address for address;
-    using ReferralTreeLib for ReferralTreeLib.Tree;
+    using BinaryTreeLib for BinaryTreeLib.Tree;
 
     // @TODO
     uint256[] public prices = [
@@ -50,10 +50,79 @@ contract ReferralSystemPolygon is Ownable, Pausable {
         10
     ];
 
-    ReferralTreeLib.Tree private tree;
+    address public wallet;
+
+    BinaryTreeLib.Tree private tree;
+
+    event Purchased(address user, uint256 level, uint256 quantity);
+    event RefLevelUpgraded(address user, uint256 newLevel, uint256 oldLevel);
 
     constructor() public {
-        //
+        //, uint256[][] memory refLevelRate
+    }
+
+    function join(address referrer) public whenNotPaused {
+        if (!tree.exists(referrer)) {
+            referrer = tree.root;
+        }
+        if (!tree.exists(_msgSender())) {
+            tree.insertNode(referrer, _msgSender());
+        }
+    }
+
+    function buy(
+        address referrer,
+        uint256 level,
+        uint256 quantity
+    ) external payable {
+        join(referrer);
+
+        require(level > 0, "Incorrect series");
+        require(quantity > 0, "Incorrect quantity");
+        require(series[level] >= quantity, "This series is over");
+
+        uint256 value = prices[level] * quantity;
+        require(msg.value == value, "Incorrect value");
+        series[level] -= quantity;
+        emit Purchased(_msgSender(), level, quantity);
+
+        uint256 currentLevel = tree.nodes[_msgSender()].level;
+        if (level > currentLevel) {
+            tree.setNodeLevel(_msgSender(), level);
+        }
+
+        tree.payReferral(_msgSender(), value);
+
+        if (wallet != address(0)) {
+            payable(wallet).transfer(balance());
+        }
+    }
+
+    function upgrade(uint256 nextLevel) external payable whenNotPaused {
+        uint256 currentLevel = tree.nodes[_msgSender()].level;
+        require(
+            currentLevel > 0,
+            "To update, the current level must be above 0"
+        );
+        require(
+            nextLevel > currentLevel,
+            "The next level must be above the current level"
+        );
+        require(nextLevel < series.length, "Incorrect next level");
+        require(series[nextLevel] > 0, "Next level is over");
+
+        uint256 difference = prices[nextLevel] - prices[currentLevel];
+        require(msg.value == difference, "Incorrect value");
+        emit RefLevelUpgraded(_msgSender(), nextLevel, currentLevel);
+
+        series[currentLevel]++;
+        series[nextLevel]--;
+        tree.setNodeLevel(_msgSender(), nextLevel);
+        tree.payReferral(_msgSender(), difference);
+
+        if (wallet != address(0)) {
+            payable(wallet).transfer(balance());
+        }
     }
 
     function pause() external onlyOwner {
@@ -70,5 +139,18 @@ contract ReferralSystemPolygon is Ownable, Pausable {
     {
         require(series[level] >= quantity, "Incorrect quantity");
         series[level] -= quantity;
+    }
+
+    function setWallet(address newWallet) external onlyOwner {
+        wallet = newWallet;
+    }
+
+    function balance() public view returns (uint256) {
+        return address(this).balance;
+    }
+
+    function withdraw(uint256 value) external onlyOwner {
+        require(value <= balance(), "Incorrect value");
+        payable(_msgSender()).transfer(value);
     }
 }
