@@ -67,6 +67,7 @@ library BinaryTreeLib {
      * @param start - Unix timestamp at 00:00.
      * @param upLimit - The maximum number of nodes to update statistics.
      * @param refLimit - The maximum number of nodes to pay rewards.
+     * @param refLevelRate -
      * @param ids - Table of accounts of the binary tree.
      * @param nodes - Table of nodes of the binary tree.
      */
@@ -430,5 +431,15 @@ library BinaryTreeLib {
         self.rewardsTotal.ref += totalPaid;
         self.rewards[day].ref += totalPaid;
         return totalPaid;
+    }
+
+    function sum(Tree storage self, uint256[] memory data)
+        internal
+        pure
+        returns (uint256 S)
+    {
+        for (uint256 i; i < data.length; i++) {
+            S += data[i];
+        }
     }
 }
