@@ -99,7 +99,13 @@ library BinaryTreeLib {
         uint256 newLevel
     );
 
-    event PaidReferral(address from, address to, uint256 amount, uint256 level);
+    event PaidReferral(
+        address indexed from,
+        address indexed to,
+        uint256 amount,
+        uint256 level
+    );
+    event PaidBinar(address indexed to, uint256 amount);
 
     function setUpLimit(Tree storage self, uint256 upLimit) internal {
         self.upLimit = upLimit;
