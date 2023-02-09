@@ -203,6 +203,7 @@ contract ReferralSystemBsc is Ownable, Pausable {
         value = (value * rate) / DECIMALS;
         uint256 paid = value - tree.nodes[_msgSender()].rewards[day].bin;
         payable(_msgSender()).transfer(paid);
+        // событе о выплате
 
         // node stats
         tree.nodes[_msgSender()].rewardsTotal.bin += paid;
