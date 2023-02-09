@@ -10,6 +10,7 @@ import "./lib/BinaryTreeLib.sol";
 contract ReferralSystemPolygon is Ownable, Pausable {
     using BinaryTreeLib for BinaryTreeLib.Tree;
 
+    uint256 public constant DECIMALS = 10000;
     // @TODO
     uint256[] public prices = [
         0,

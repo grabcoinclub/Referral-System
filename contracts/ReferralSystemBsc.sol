@@ -9,6 +9,7 @@ import "./lib/BinaryTreeLib.sol";
 contract ReferralSystemBsc is Ownable, Pausable {
     using BinaryTreeLib for BinaryTreeLib.Tree;
 
+    uint256 public constant DECIMALS = 10000;
     uint256[] public prices = [
         0,
         0.2 ether,
@@ -54,8 +55,23 @@ contract ReferralSystemBsc is Ownable, Pausable {
     event RefLevelUpgraded(address user, uint256 newLevel, uint256 oldLevel);
 
     constructor(uint256[][] memory refLevelRate) public {
-        //, uint256[][] memory refLevelRate
+        // ref sistem
+        require(
+            refLevelRate.length > 0,
+            "Referral levels should be at least one"
+        );
+        for (uint256 i; i < refLevelRate.length; i++) {
+            require(
+                tree.sum(refLevelRate[i]) <= DECIMALS,
+                "Total level rate exceeds 100%"
+            );
+            if (refLevelRate[i].length > tree.refLimit) {
+                tree.refLimit = refLevelRate[i].length;
+            }
+        }
         tree.refLevelRate = refLevelRate;
+
+        // binary sistem
         tree.start = 0;
         tree.upLimit = 3;
         tree.root = address(this);
