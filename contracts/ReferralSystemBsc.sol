@@ -53,9 +53,37 @@ contract ReferralSystemBsc is Ownable, Pausable {
     event Purchased(address user, uint256 level, uint256 quantity);
     event RefLevelUpgraded(address user, uint256 newLevel, uint256 oldLevel);
 
-    constructor() public {
+    constructor(uint256[][] memory refLevelRate) public {
         //, uint256[][] memory refLevelRate
-        //tree.refLevelRate = refLevelRate;
+        tree.refLevelRate = refLevelRate;
+        tree.start = 0;
+        tree.upLimit = 3;
+        tree.root = address(this);
+        tree.count++;
+        tree.ids[tree.count] = tree.root;
+
+        BinaryTreeLib.Node storage rootNode = tree.nodes[tree.root];
+        rootNode.id = tree.count;
+        rootNode.level = 0;
+        rootNode.height = 1;
+        rootNode.referrer = BinaryTreeLib.EMPTY;
+        rootNode.parent = BinaryTreeLib.EMPTY;
+        rootNode.left = BinaryTreeLib.EMPTY;
+        rootNode.right = BinaryTreeLib.EMPTY;
+        rootNode.direction = BinaryTreeLib.Direction.RIGHT;
+        rootNode.partners = 0;
+
+        emit BinaryTreeLib.Registration(
+            tree.root,
+            rootNode.referrer,
+            rootNode.parent,
+            rootNode.id,
+            BinaryTreeLib.Direction.RIGHT
+        );
+        emit BinaryTreeLib.DirectionChange(
+            tree.root,
+            BinaryTreeLib.Direction.RIGHT
+        );
     }
 
     function join(address referrer) public whenNotPaused {
@@ -124,6 +152,11 @@ contract ReferralSystemBsc is Ownable, Pausable {
         }
     }
 
+    function setTreeNodeDirection(BinaryTreeLib.Direction direction) external {
+        require(tree.exists(_msgSender()), "Node does not exist");
+        tree.setNodeDirection(_msgSender(), direction);
+    }
+
     function pause() external onlyOwner {
         _pause();
     }
@@ -151,5 +184,110 @@ contract ReferralSystemBsc is Ownable, Pausable {
     function withdraw(uint256 value) external onlyOwner {
         require(value <= balance(), "Incorrect value");
         payable(_msgSender()).transfer(value);
+    }
+
+    //
+
+    function getTreeParams()
+        external
+        view
+        returns (
+            address _root,
+            uint256 _count,
+            uint256 _start,
+            uint256 _upLimit,
+            uint256 _day
+        )
+    {
+        _root = tree.root;
+        _count = tree.count;
+        _start = tree.start;
+        _upLimit = tree.upLimit;
+        _day = tree.getCurrentDay();
+    }
+
+    // + лимит обновлений upLimit
+    function setTreeUpLimit(uint256 upLimit) external onlyOwner {
+        tree.setUpLimit(upLimit);
+    }
+
+    //+
+    function getTreeIdToAccount(uint256 id) external view returns (address) {
+        require(id <= tree.count, "Index out of bounds");
+        return tree.ids[id];
+    }
+
+    function treeLastLeftIn(address account) external view returns (address) {
+        return tree.lastLeftIn(account);
+    }
+
+    function treeLastRightIn(address account) external view returns (address) {
+        return tree.lastRightIn(account);
+    }
+
+    function treeNodeExists(address account) external view returns (bool) {
+        return tree.exists(account);
+    }
+
+    function getNode(address account)
+        external
+        view
+        returns (
+            uint256 _id,
+            uint256 _level,
+            uint256 _height,
+            address _referrer,
+            address _parent,
+            address _left,
+            address _right,
+            BinaryTreeLib.Direction _direction
+        )
+    {
+        (
+            _id,
+            _level,
+            _height,
+            _referrer,
+            _parent,
+            _left,
+            _right,
+            _direction
+        ) = tree.getNode(account);
+    }
+
+    function getNodeStats(address account)
+        external
+        view
+        returns (
+            uint256 _partners,
+            uint256 _rewardsRefTotal,
+            uint256 _rewardsBinTotal
+        )
+    {
+        (_partners, _rewardsRefTotal, _rewardsBinTotal) = tree.getNodeStats(
+            account
+        );
+    }
+
+    function getNodeStatsInDay(address account, uint256 day)
+        external
+        view
+        returns (
+            uint256 _rewardsRef,
+            uint256 _rewardsBin,
+            uint256 _statsMy,
+            uint256 _statsLeft,
+            uint256 _statsRight,
+            uint256 _statsTotal
+        )
+    {
+        (
+            _rewardsRef,
+            _rewardsBin,
+            _statsMy,
+            _statsLeft,
+            _statsRight,
+            _statsTotal
+        ) = tree.getNodeStatsInDay(account, day);
     }
 }
