@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "@openzeppelin/contracts/utils/Address.sol";
-
 library BinaryTreeLib {
-    address public constant EMPTY = address(0);
     uint256 public constant DAY = 86400;
     uint256 public constant DECIMALS = 10000;
+    address public constant EMPTY = address(0);
 
     enum Direction {
         RANDOM,
@@ -50,6 +48,7 @@ library BinaryTreeLib {
         uint256 level;
         uint256 height;
         address referrer;
+        bool isSponsoredRight;
         address parent;
         address left;
         address right;
@@ -65,7 +64,7 @@ library BinaryTreeLib {
      * @param root - The Root of the binary tree.
      * @param count - Number of nodes in the binary tree.
      * @param start - Unix timestamp at 00:00.
-     * @param upLimit - The maximum number of nodes to update statistics.
+     * @param upLimit - The maximum number of nodes to update statistics. If 0, then there are no limit.
      * @param refLimit - The maximum number of nodes to pay rewards.
      * @param refLevelRate -
      * @param ids - Table of accounts of the binary tree.
@@ -103,9 +102,10 @@ library BinaryTreeLib {
         address indexed from,
         address indexed to,
         uint256 amount,
-        uint256 level
+        uint256 line
     );
     event PaidBinar(address indexed to, uint256 amount);
+    event Exit(address indexed account, uint256 level);
 
     function setUpLimit(Tree storage self, uint256 upLimit) internal {
         self.upLimit = upLimit;
@@ -219,7 +219,7 @@ library BinaryTreeLib {
      * @dev A function that returns the random distribution direction.
      */
     function _randomDirection(Tree storage self)
-        internal
+        private
         view
         returns (Direction direction)
     {
@@ -233,7 +233,7 @@ library BinaryTreeLib {
                 )
             )
         ) % uint256(10000);
-        if (random < 5000) return Direction.RIGHT;
+        if (random < uint256(5000)) return Direction.RIGHT;
         else return Direction.LEFT;
     }
 
@@ -242,11 +242,16 @@ library BinaryTreeLib {
         address referrer,
         address account
     ) internal {
-        //require(exists(self, referrer), "Parrent node does not exist");
-        //require(!exists(self, account), "Children node already exist");
-        require(!Address.isContract(account), "Cannot be a contract");
+        require(!isContract(account), "Cannot be a contract");
 
         Direction direction = self.nodes[referrer].direction;
+
+        Node storage refNode = self.nodes[referrer];
+        if (refNode.partners++ == 0) {
+            if (refNode.isSponsoredRight) direction = Direction.RIGHT;
+            else direction = Direction.LEFT;
+        }
+
         if (direction == Direction.RANDOM) {
             direction = _randomDirection(self); // RIGHT or LEFT
         }
@@ -263,14 +268,12 @@ library BinaryTreeLib {
         self.count++;
         self.ids[self.count] = account;
 
-        Node storage refNode = self.nodes[referrer];
-        refNode.partners++;
-
         Node storage newNode = self.nodes[account];
         newNode.id = self.count;
         newNode.level = 0;
         newNode.height = self.nodes[cursor].height + 1;
         newNode.referrer = referrer;
+        newNode.isSponsoredRight = refNode.isSponsoredRight;
         newNode.parent = cursor;
         newNode.left = EMPTY;
         newNode.right = EMPTY;
@@ -291,8 +294,6 @@ library BinaryTreeLib {
         address account,
         uint256 level
     ) internal {
-        //require(exists(self, account), "Node does not exist");
-
         emit LevelChange(account, self.nodes[account].level, level);
         self.nodes[account].level = level;
     }
@@ -302,19 +303,16 @@ library BinaryTreeLib {
         address account,
         Direction direction
     ) internal {
-        //require(exists(self, account), "Node does not exist");
-
-        self.nodes[account].direction = direction;
         emit DirectionChange(account, direction);
+        self.nodes[account].direction = direction;
     }
 
+    // ?
     function addNodeMyStats(
         Tree storage self,
         address account,
         uint256 value
     ) internal {
-        //require(exists(self, account), "Node does not exist");
-
         uint256 day = getCurrentDay(self);
         Node storage gn = self.nodes[account];
         gn.stats[day].my += value;
@@ -352,53 +350,39 @@ library BinaryTreeLib {
         }
     }
 
-    //?--
     function addNodeRewardsRef(
         Tree storage self,
         address account,
         uint256 value
     ) internal {
-        //require(exists(self, account), "Node does not exist");
-
         uint256 day = getCurrentDay(self);
         Node storage gn = self.nodes[account];
         gn.rewardsTotal.ref += value;
         gn.rewards[day].ref += value;
     }
 
-    //?--
     function addNodeRewardsBin(
         Tree storage self,
         address account,
         uint256 value
     ) internal {
-        //require(exists(self, account), "Node does not exist");
-
         uint256 day = getCurrentDay(self);
         Node storage gn = self.nodes[account];
         gn.rewardsTotal.bin += value;
         gn.rewards[day].bin += value;
     }
 
-    //?--
     function addTreeRewardsRef(Tree storage self, uint256 value) internal {
-        //require(exists(self, account), "Node does not exist");
-
         uint256 day = getCurrentDay(self);
         self.rewardsTotal.ref += value;
         self.rewards[day].ref += value;
     }
 
-    //?--
     function addTreeRewardsBin(Tree storage self, uint256 value) internal {
-        //require(exists(self, account), "Node does not exist");
-
         uint256 day = getCurrentDay(self);
         self.rewardsTotal.bin += value;
         self.rewards[day].bin += value;
     }
-
-    // common
 
     /**
      * @dev This will calc and pay referral to uplines instantly
@@ -410,7 +394,6 @@ library BinaryTreeLib {
         address account,
         uint256 value
     ) internal returns (uint256) {
-        uint256 day = getCurrentDay(self);
         uint256 totalPaid;
         address cursor = account;
         for (uint256 i; i < self.refLimit; i++) {
@@ -422,11 +405,10 @@ library BinaryTreeLib {
 
             uint256 c = (value * self.refLevelRate[rn.level][i]) / DECIMALS;
             if (c > 0) {
-                // node stats
                 totalPaid += c;
-                self.nodes[referrer].rewardsTotal.ref += c;
-                self.nodes[referrer].rewards[day].ref += c;
                 referrer.transfer(c);
+                // node stats
+                addNodeRewardsRef(self, referrer, c);
             }
             emit PaidReferral(account, referrer, c, i + 1);
 
@@ -434,27 +416,22 @@ library BinaryTreeLib {
         }
 
         // tree stats
-        self.rewardsTotal.ref += totalPaid;
-        self.rewards[day].ref += totalPaid;
+        addTreeRewardsRef(self, totalPaid);
         return totalPaid;
     }
 
-    function sum(Tree storage self, uint256[] memory data)
-        internal
-        pure
-        returns (uint256 S)
-    {
+    function sum(uint256[] memory data) internal pure returns (uint256 s) {
         for (uint256 i; i < data.length; i++) {
-            S += data[i];
+            s += data[i];
         }
     }
 
-    function min(
-        Tree storage self,
-        uint256 a,
-        uint256 b
-    ) internal pure returns (uint256) {
+    function min(uint256 a, uint256 b) internal pure returns (uint256) {
         if (a < b) return a;
         else return b;
+    }
+
+    function isContract(address account) internal view returns (bool) {
+        return account.code.length > 0;
     }
 }
