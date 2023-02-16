@@ -244,24 +244,52 @@ contract ReferralSystemBsc is Ownable, Pausable {
         _day = tree.getCurrentDay();
     }
 
+    function getTreeStats()
+        external
+        view
+        returns (uint256 _rewardsRefTotal, uint256 _rewardsBinTotal)
+    {
+        _rewardsRefTotal = rewardsTotal.ref;
+        _rewardsBinTotal = rewardsTotal.bin;
+    }
+
+    function getTreeStatsInDay(uint256 day)
+        external
+        view
+        returns (uint256 _rewardsRef, uint256 _rewardsBin)
+    {
+        NodeRewards rewardsTotal;
+        mapping(uint256 => NodeRewards) rewards;
+        _rewardsRef = tree.rewards[day].ref;
+        _rewardsBin = tree.rewards[day].bin;
+    }
+
     function setUpLimit(uint256 upLimit) external onlyOwner {
         tree.setUpLimit(upLimit);
     }
 
-    function getTreeIdToAccount(uint256 id) external view returns (address) {
+    function getIdToAccount(uint256 id) external view returns (address) {
         require(id <= tree.count, "Index out of bounds");
         return tree.ids[id];
     }
 
-    function treeLastLeftIn(address account) external view returns (address) {
+    function getLastNodeLeftIn(address account)
+        external
+        view
+        returns (address)
+    {
         return tree.lastLeftIn(account);
     }
 
-    function treeLastRightIn(address account) external view returns (address) {
+    function getLastNodeRightIn(address account)
+        external
+        view
+        returns (address)
+    {
         return tree.lastRightIn(account);
     }
 
-    function treeNodeExists(address account) external view returns (bool) {
+    function isNodeExists(address account) external view returns (bool) {
         return tree.exists(account);
     }
 
