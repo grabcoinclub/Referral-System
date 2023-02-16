@@ -90,7 +90,7 @@ contract ReferralSystemBsc is Ownable, Pausable {
         tree.refLevelRate = refLevelRate;
 
         // binary sistem
-        tree.start = 0;
+        tree.start = 0; // TODO
         tree.upLimit = 0; // 0 - unlimit
         tree.root = address(this);
         tree.count++;
