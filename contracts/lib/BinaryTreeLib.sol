@@ -307,7 +307,6 @@ library BinaryTreeLib {
         self.nodes[account].direction = direction;
     }
 
-    // ?
     function addNodeMyStats(
         Tree storage self,
         address account,
