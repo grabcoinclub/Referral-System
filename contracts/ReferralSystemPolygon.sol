@@ -140,8 +140,10 @@ contract ReferralSystemPolygon is Ownable, Pausable {
         uint256 level,
         uint256 quantity
     ) external payable whenNotPaused {
-        uint256 balance = tree.getBalance(_msgSender());
-        require(balance + quantity <= 5, "MAX LIMIT 5");
+        join(referrer);
+
+        uint256 balanceTotal = tree.getBalanceTotal(_msgSender());
+        require(balanceTotal + quantity <= 5, "MAX LIMIT 5");
         require(series[level] >= quantity, "Next level is over");
 
         uint256 total = prices[level] * quantity;
@@ -168,9 +170,9 @@ contract ReferralSystemPolygon is Ownable, Pausable {
         require(currentLevel > 0, "Level 0");
 
         for (uint256 i; i < 16; i++) {
-            uint256 balance = tree.nodes[_msgSender()].balance[i];
-            if (balance > 0) {
-                for (uint256 j; j < balance; j++) {
+            uint256 balanceTotal = tree.nodes[_msgSender()].balance[i];
+            if (balanceTotal > 0) {
+                for (uint256 j; j < balanceTotal; j++) {
                     emit ReferralTreeLib.Exit(_msgSender(), i);
                 }
                 tree.nodes[_msgSender()].balance[i] = 0;
@@ -225,7 +227,7 @@ contract ReferralSystemPolygon is Ownable, Pausable {
     }
 
     function getTreeStats() external view returns (uint256 _rewardsRefTotal) {
-        _rewardsRefTotal = rewardsTotal.ref;
+        _rewardsRefTotal = tree.rewardsTotal;
     }
 
     function getTreeStatsInDay(uint256 day)
@@ -239,22 +241,6 @@ contract ReferralSystemPolygon is Ownable, Pausable {
     function getIdToAccount(uint256 id) external view returns (address) {
         require(id <= tree.count, "Index out of bounds");
         return tree.ids[id];
-    }
-
-    function getLastNodeLeftIn(address account)
-        external
-        view
-        returns (address)
-    {
-        return tree.lastLeftIn(account);
-    }
-
-    function getLastNodeRightIn(address account)
-        external
-        view
-        returns (address)
-    {
-        return tree.lastRightIn(account);
     }
 
     function isNodeExists(address account) external view returns (bool) {

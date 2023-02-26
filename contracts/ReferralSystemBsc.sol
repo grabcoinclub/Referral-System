@@ -257,7 +257,6 @@ contract ReferralSystemBsc is Ownable, Pausable {
         view
         returns (uint256 _rewardsRef, uint256 _rewardsBin)
     {
-        mapping(uint256 => NodeRewards) rewards;
         _rewardsRef = tree.rewards[day].ref;
         _rewardsBin = tree.rewards[day].bin;
     }

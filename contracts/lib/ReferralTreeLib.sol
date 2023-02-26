@@ -68,7 +68,7 @@ library ReferralTreeLib {
     );
     event Exit(address indexed account, uint256 level);
 
-    function getBalance(Tree storage self, address account)
+    function getBalanceTotal(Tree storage self, address account)
         internal
         view
         returns (uint256 balance)
@@ -89,7 +89,7 @@ library ReferralTreeLib {
     {
         if (account == EMPTY) return false;
         if (account == self.root) return true;
-        if (self.nodes[account].parent != EMPTY) return true;
+        if (self.nodes[account].referrer != EMPTY) return true;
         return false;
     }
 
