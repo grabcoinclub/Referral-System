@@ -248,8 +248,8 @@ contract ReferralSystemBsc is Ownable, Pausable {
         view
         returns (uint256 _rewardsRefTotal, uint256 _rewardsBinTotal)
     {
-        _rewardsRefTotal = rewardsTotal.ref;
-        _rewardsBinTotal = rewardsTotal.bin;
+        _rewardsRefTotal = tree.rewardsTotal.ref;
+        _rewardsBinTotal = tree.rewardsTotal.bin;
     }
 
     function getTreeStatsInDay(uint256 day)
@@ -257,7 +257,6 @@ contract ReferralSystemBsc is Ownable, Pausable {
         view
         returns (uint256 _rewardsRef, uint256 _rewardsBin)
     {
-        NodeRewards rewardsTotal;
         mapping(uint256 => NodeRewards) rewards;
         _rewardsRef = tree.rewards[day].ref;
         _rewardsBin = tree.rewards[day].bin;
