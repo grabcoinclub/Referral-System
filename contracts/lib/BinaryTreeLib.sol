@@ -2,8 +2,8 @@
 pragma solidity 0.8.17;
 
 library BinaryTreeLib {
-    uint256 public constant DAY = 86400;
-    uint256 public constant DECIMALS = 10000;
+    uint256 public constant DAY = 86_400;
+    uint256 public constant DECIMALS = 10_000;
     address public constant EMPTY = address(0);
 
     enum Direction {

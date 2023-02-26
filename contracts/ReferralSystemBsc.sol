@@ -3,13 +3,12 @@ pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
 import "./lib/BinaryTreeLib.sol";
 
 contract ReferralSystemBsc is Ownable, Pausable {
     using BinaryTreeLib for BinaryTreeLib.Tree;
 
-    uint256 public constant DECIMALS = 10000;
+    uint256 public constant DECIMALS = BinaryTreeLib.DECIMALS;
     uint256[] public prices = [
         0,
         0.2 ether,
@@ -30,13 +29,13 @@ contract ReferralSystemBsc is Ownable, Pausable {
     ];
     uint256[] public series = [
         0,
-        3000,
-        2800,
-        2300,
-        2000,
-        1700,
-        1500,
-        1000,
+        3_000,
+        2_800,
+        2_300,
+        2_000,
+        1_700,
+        1_500,
+        1_000,
         550,
         300,
         200,
@@ -57,12 +56,12 @@ contract ReferralSystemBsc is Ownable, Pausable {
         800,
         900,
         900,
-        1000,
-        1000,
-        1100,
-        1100,
-        1200,
-        1200
+        1_000,
+        1_000,
+        1_100,
+        1_100,
+        1_200,
+        1_200
     ];
 
     address public wallet;
@@ -156,7 +155,7 @@ contract ReferralSystemBsc is Ownable, Pausable {
         uint256 refPaid = tree.payReferral(_msgSender(), difference);
 
         if (wallet != address(0)) {
-            // 6000/10000=60%
+            // TODO 6000/10000=60%
             uint256 valueOut = (difference * 6000) / DECIMALS;
             if ((difference - refPaid) < valueOut)
                 valueOut = difference - refPaid;
