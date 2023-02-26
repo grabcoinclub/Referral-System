@@ -3,43 +3,40 @@ pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
 import "./lib/ReferralTreeLib.sol";
-import "./lib/BinaryTreeLib.sol";
 
 contract ReferralSystemPolygon is Ownable, Pausable {
-    using BinaryTreeLib for BinaryTreeLib.Tree;
+    using ReferralTreeLib for ReferralTreeLib.Tree;
 
-    uint256 public constant DECIMALS = 10000;
-    // @TODO
+    uint256 public constant DECIMALS = ReferralTreeLib.DECIMALS;
     uint256[] public prices = [
         0,
-        0.001 ether,
-        0.002 ether,
-        0.003 ether,
-        0.004 ether,
-        0.005 ether,
-        0.006 ether,
-        0.007 ether,
-        0.008 ether,
-        0.009 ether,
-        0.010 ether,
-        0.011 ether,
-        0.012 ether,
-        0.013 ether,
-        0.014 ether,
-        0.015 ether,
-        0.016 ether
+        100 ether,
+        300 ether,
+        500 ether,
+        700 ether,
+        1_000 ether,
+        3_000 ether,
+        5_000 ether,
+        7_000 ether,
+        10_000 ether,
+        30_000 ether,
+        50_000 ether,
+        70_000 ether,
+        100_000 ether,
+        150_000 ether,
+        200_000 ether,
+        300_000 ether
     ];
     uint256[] public series = [
         0,
-        3000,
-        2500,
-        2200,
-        1800,
-        1500,
-        1300,
-        1100,
+        3_000,
+        2_500,
+        2_200,
+        1_800,
+        1_500,
+        1_300,
+        1_100,
         800,
         500,
         300,
@@ -53,40 +50,45 @@ contract ReferralSystemPolygon is Ownable, Pausable {
 
     address public wallet;
 
-    BinaryTreeLib.Tree private tree;
+    ReferralTreeLib.Tree private tree;
 
     event Purchased(address user, uint256 level, uint256 quantity);
     event RefLevelUpgraded(address user, uint256 newLevel, uint256 oldLevel);
 
-    constructor() public {
-        //, uint256[][] memory refLevelRate
+    constructor(uint256[][] memory refLevelRate) public {
+        // ref sistem
+        require(
+            refLevelRate.length > 0,
+            "Referral levels should be at least one"
+        );
+        for (uint256 i; i < refLevelRate.length; i++) {
+            require(
+                ReferralTreeLib.sum(refLevelRate[i]) <= DECIMALS,
+                "Total level rate exceeds 100%"
+            );
+            if (refLevelRate[i].length > tree.refLimit) {
+                tree.refLimit = refLevelRate[i].length;
+            }
+        }
+        tree.refLevelRate = refLevelRate;
+
+        // tree
         tree.start = 0;
-        tree.upLimit = 0; // 0 - unlimit
         tree.root = address(this);
         tree.count++;
         tree.ids[tree.count] = tree.root;
 
-        BinaryTreeLib.Node storage rootNode = tree.nodes[tree.root];
+        ReferralTreeLib.Node storage rootNode = tree.nodes[tree.root];
         rootNode.id = tree.count;
         rootNode.level = 0;
         rootNode.height = 1;
-        rootNode.referrer = BinaryTreeLib.EMPTY;
-        rootNode.parent = BinaryTreeLib.EMPTY;
-        rootNode.left = BinaryTreeLib.EMPTY;
-        rootNode.right = BinaryTreeLib.EMPTY;
-        rootNode.direction = BinaryTreeLib.Direction.RIGHT;
+        rootNode.referrer = ReferralTreeLib.EMPTY;
         rootNode.partners = 0;
 
-        emit BinaryTreeLib.Registration(
+        emit ReferralTreeLib.Registration(
             tree.root,
             rootNode.referrer,
-            rootNode.parent,
-            rootNode.id,
-            BinaryTreeLib.Direction.RIGHT
-        );
-        emit BinaryTreeLib.DirectionChange(
-            tree.root,
-            BinaryTreeLib.Direction.RIGHT
+            rootNode.id
         );
     }
 
@@ -99,40 +101,14 @@ contract ReferralSystemPolygon is Ownable, Pausable {
         }
     }
 
-    function buy(
-        address referrer,
-        uint256 level,
-        uint256 quantity
-    ) external payable {
+    function upgrade(address referrer, uint256 nextLevel)
+        external
+        payable
+        whenNotPaused
+    {
         join(referrer);
 
-        require(level > 0, "Incorrect series");
-        require(quantity > 0, "Incorrect quantity");
-        require(series[level] >= quantity, "This series is over");
-
-        uint256 value = prices[level] * quantity;
-        require(msg.value == value, "Incorrect value");
-        series[level] -= quantity;
-        emit Purchased(_msgSender(), level, quantity);
-
         uint256 currentLevel = tree.nodes[_msgSender()].level;
-        if (level > currentLevel) {
-            tree.setNodeLevel(_msgSender(), level);
-        }
-
-        tree.payReferral(_msgSender(), value);
-
-        if (wallet != address(0)) {
-            payable(wallet).transfer(balance());
-        }
-    }
-
-    function upgrade(uint256 nextLevel) external payable whenNotPaused {
-        uint256 currentLevel = tree.nodes[_msgSender()].level;
-        require(
-            currentLevel > 0,
-            "To update, the current level must be above 0"
-        );
         require(
             nextLevel > currentLevel,
             "The next level must be above the current level"
@@ -144,14 +120,63 @@ contract ReferralSystemPolygon is Ownable, Pausable {
         require(msg.value == difference, "Incorrect value");
         emit RefLevelUpgraded(_msgSender(), nextLevel, currentLevel);
 
-        series[currentLevel]++;
+        if (currentLevel > 0) {
+            series[currentLevel]++;
+            tree.nodes[_msgSender()].balance[currentLevel]--;
+        }
         series[nextLevel]--;
+        tree.nodes[_msgSender()].balance[nextLevel]++;
         tree.setNodeLevel(_msgSender(), nextLevel);
-        tree.payReferral(_msgSender(), difference);
+        uint256 refPaid = tree.payReferral(_msgSender(), difference);
 
         if (wallet != address(0)) {
-            payable(wallet).transfer(balance());
+            uint256 valueOut = difference - refPaid;
+            if (valueOut > 0) payable(wallet).transfer(valueOut);
         }
+    }
+
+    function buy(
+        address referrer,
+        uint256 level,
+        uint256 quantity
+    ) external payable whenNotPaused {
+        uint256 balance = tree.getBalance(_msgSender());
+        require(balance + quantity <= 5, "MAX LIMIT 5");
+        require(series[level] >= quantity, "Next level is over");
+
+        uint256 total = prices[level] * quantity;
+        require(msg.value == total, "Incorrect value");
+
+        series[level] -= quantity;
+        tree.nodes[_msgSender()].balance[level] += quantity;
+
+        uint256 currentLevel = tree.nodes[_msgSender()].level;
+        if (currentLevel < level) {
+            tree.setNodeLevel(_msgSender(), level);
+            emit RefLevelUpgraded(_msgSender(), level, currentLevel);
+        }
+
+        uint256 refPaid = tree.payReferral(_msgSender(), total);
+        if (wallet != address(0)) {
+            uint256 valueOut = total - refPaid;
+            if (valueOut > 0) payable(wallet).transfer(valueOut);
+        }
+    }
+
+    function exit() external whenNotPaused {
+        uint256 currentLevel = tree.nodes[_msgSender()].level;
+        require(currentLevel > 0, "Level 0");
+
+        for (uint256 i; i < 16; i++) {
+            uint256 balance = tree.nodes[_msgSender()].balance[i];
+            if (balance > 0) {
+                for (uint256 j; j < balance; j++) {
+                    emit ReferralTreeLib.Exit(_msgSender(), i);
+                }
+                tree.nodes[_msgSender()].balance[i] = 0;
+            }
+        }
+        tree.setNodeLevel(_msgSender(), 0);
     }
 
     function pause() external onlyOwner {
@@ -183,8 +208,6 @@ contract ReferralSystemPolygon is Ownable, Pausable {
         payable(_msgSender()).transfer(value);
     }
 
-    //
-
     function getTreeParams()
         external
         view
@@ -192,37 +215,49 @@ contract ReferralSystemPolygon is Ownable, Pausable {
             address _root,
             uint256 _count,
             uint256 _start,
-            uint256 _upLimit,
             uint256 _day
         )
     {
         _root = tree.root;
         _count = tree.count;
         _start = tree.start;
-        _upLimit = tree.upLimit;
         _day = tree.getCurrentDay();
     }
 
-    // + лимит обновлений upLimit
-    function setTreeUpLimit(uint256 upLimit) external onlyOwner {
-        tree.setUpLimit(upLimit);
+    function getTreeStats() external view returns (uint256 _rewardsRefTotal) {
+        _rewardsRefTotal = rewardsTotal.ref;
     }
 
-    //+
-    function getTreeIdToAccount(uint256 id) external view returns (address) {
+    function getTreeStatsInDay(uint256 day)
+        external
+        view
+        returns (uint256 _rewardsRef)
+    {
+        _rewardsRef = tree.rewards[day];
+    }
+
+    function getIdToAccount(uint256 id) external view returns (address) {
         require(id <= tree.count, "Index out of bounds");
         return tree.ids[id];
     }
 
-    function treeLastLeftIn(address account) external view returns (address) {
+    function getLastNodeLeftIn(address account)
+        external
+        view
+        returns (address)
+    {
         return tree.lastLeftIn(account);
     }
 
-    function treeLastRightIn(address account) external view returns (address) {
+    function getLastNodeRightIn(address account)
+        external
+        view
+        returns (address)
+    {
         return tree.lastRightIn(account);
     }
 
-    function treeNodeExists(address account) external view returns (bool) {
+    function isNodeExists(address account) external view returns (bool) {
         return tree.exists(account);
     }
 
@@ -233,58 +268,25 @@ contract ReferralSystemPolygon is Ownable, Pausable {
             uint256 _id,
             uint256 _level,
             uint256 _height,
-            address _referrer,
-            address _parent,
-            address _left,
-            address _right,
-            BinaryTreeLib.Direction _direction
+            address _referrer
         )
     {
-        (
-            _id,
-            _level,
-            _height,
-            _referrer,
-            _parent,
-            _left,
-            _right,
-            _direction
-        ) = tree.getNode(account);
+        (_id, _level, _height, _referrer) = tree.getNode(account);
     }
 
     function getNodeStats(address account)
         external
         view
-        returns (
-            uint256 _partners,
-            uint256 _rewardsRefTotal,
-            uint256 _rewardsBinTotal
-        )
+        returns (uint256 _partners, uint256 _rewardsRefTotal)
     {
-        (_partners, _rewardsRefTotal, _rewardsBinTotal) = tree.getNodeStats(
-            account
-        );
+        (_partners, _rewardsRefTotal) = tree.getNodeStats(account);
     }
 
     function getNodeStatsInDay(address account, uint256 day)
         external
         view
-        returns (
-            uint256 _rewardsRef,
-            uint256 _rewardsBin,
-            uint256 _statsMy,
-            uint256 _statsLeft,
-            uint256 _statsRight,
-            uint256 _statsTotal
-        )
+        returns (uint256 _rewardsRef)
     {
-        (
-            _rewardsRef,
-            _rewardsBin,
-            _statsMy,
-            _statsLeft,
-            _statsRight,
-            _statsTotal
-        ) = tree.getNodeStatsInDay(account, day);
+        (_rewardsRef) = tree.getNodeStatsInDay(account, day);
     }
 }
