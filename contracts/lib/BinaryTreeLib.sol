@@ -66,7 +66,7 @@ library BinaryTreeLib {
      * @param start - Unix timestamp at 00:00.
      * @param upLimit - The maximum number of nodes to update statistics. If 0, then there are no limit.
      * @param refLimit - The maximum number of nodes to pay rewards.
-     * @param refLevelRate -
+     * @param refLevelRate - List of percentages for each line for each level.
      * @param ids - Table of accounts of the binary tree.
      * @param nodes - Table of nodes of the binary tree.
      */
