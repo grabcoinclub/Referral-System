@@ -11,22 +11,22 @@ contract ReferralSystemPolygon is Ownable, Pausable {
     uint256 public constant DECIMALS = ReferralTreeLib.DECIMALS;
     uint256[] public prices = [
         0,
-        100 ether,
-        300 ether,
-        500 ether,
-        700 ether,
-        1_000 ether,
-        3_000 ether,
-        5_000 ether,
-        7_000 ether,
-        10_000 ether,
-        30_000 ether,
-        50_000 ether,
-        70_000 ether,
-        100_000 ether,
-        150_000 ether,
-        200_000 ether,
-        300_000 ether
+        0.001 ether,
+        0.002 ether,
+        0.003 ether,
+        0.004 ether,
+        0.005 ether,
+        0.006 ether,
+        0.007 ether,
+        0.008 ether,
+        0.009 ether,
+        0.010 ether,
+        0.011 ether,
+        0.012 ether,
+        0.013 ether,
+        0.014 ether,
+        0.015 ether,
+        0.016 ether
     ];
     uint256[] public series = [
         0,

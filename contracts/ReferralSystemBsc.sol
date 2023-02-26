@@ -11,21 +11,21 @@ contract ReferralSystemBsc is Ownable, Pausable {
     uint256 public constant DECIMALS = BinaryTreeLib.DECIMALS;
     uint256[] public prices = [
         0,
-        0.2 ether,
-        0.3 ether,
-        0.5 ether,
-        1 ether,
-        2 ether,
-        3 ether,
-        5 ether,
-        10 ether,
-        18 ether,
-        30 ether,
-        50 ether,
-        100 ether,
-        180 ether,
-        300 ether,
-        500 ether
+        0.001 ether,
+        0.002 ether,
+        0.003 ether,
+        0.004 ether,
+        0.005 ether,
+        0.006 ether,
+        0.007 ether,
+        0.008 ether,
+        0.009 ether,
+        0.010 ether,
+        0.011 ether,
+        0.012 ether,
+        0.013 ether,
+        0.014 ether,
+        0.015 ether
     ];
     uint256[] public series = [
         0,
