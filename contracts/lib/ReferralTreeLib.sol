@@ -63,6 +63,9 @@ library ReferralTreeLib {
         uint256 newLevel
     );
 
+    event Purchased(address user, uint256 level, uint256 quantity);
+    event RefLevelUpgraded(address user, uint256 newLevel, uint256 oldLevel);
+
     event PaidReferral(
         address indexed from,
         address indexed to,
@@ -71,6 +74,11 @@ library ReferralTreeLib {
     );
     event Exit(address indexed account, uint256 level);
 
+    /** @dev Current day from start time. */
+    function getCurrentDay(Tree storage self) internal view returns (uint256) {
+        return (block.timestamp - self.start) / DAY;
+    }
+
     function getBalanceTotal(
         Tree storage self,
         address account
@@ -78,10 +86,6 @@ library ReferralTreeLib {
         for (uint256 i; i < 16; i++) {
             balance += self.nodes[account].balance[i];
         }
-    }
-
-    function getCurrentDay(Tree storage self) internal view returns (uint256) {
-        return (block.timestamp - self.start) / DAY;
     }
 
     function exists(

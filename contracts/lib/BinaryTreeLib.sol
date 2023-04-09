@@ -107,21 +107,25 @@ library BinaryTreeLib {
         uint256 newLevel
     );
 
+    event Purchased(address user, uint256 level, uint256 quantity);
+    event RefLevelUpgraded(address user, uint256 newLevel, uint256 oldLevel);
+
     event PaidReferral(
         address indexed from,
         address indexed to,
         uint256 amount,
         uint256 line
     );
-    event PaidBinar(address indexed to, uint256 amount);
+    event PaidBinar(address indexed to, uint256 day, uint256 amount);
     event Exit(address indexed account, uint256 level);
+
+    /** @dev Current day from start time. */
+    function getCurrentDay(Tree storage self) internal view returns (uint256) {
+        return (block.timestamp - self.start) / DAY;
+    }
 
     function setUpLimit(Tree storage self, uint256 upLimit) internal {
         self.upLimit = upLimit;
-    }
-
-    function getCurrentDay(Tree storage self) internal view returns (uint256) {
-        return (block.timestamp - self.start) / DAY;
     }
 
     function lastLeftIn(

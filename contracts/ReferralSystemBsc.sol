@@ -3,9 +3,11 @@ pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./lib/BinaryTreeLib.sol";
 
-contract ReferralSystemBsc is Ownable, Pausable {
+contract ReferralSystemBsc is ReentrancyGuard, Ownable, Pausable {
     using BinaryTreeLib for BinaryTreeLib.Tree;
 
     /** @dev Divisor for calculating percentages. */
@@ -74,14 +76,26 @@ contract ReferralSystemBsc is Ownable, Pausable {
         1_200
     ];
 
+    BinaryTreeLib.Tree private _tree;
+
+    /**
+     * @dev Team wallet.
+     * If it is not set, then payments remain at the address of the contract.
+     */
     address public wallet;
 
-    BinaryTreeLib.Tree private tree;
+    /** @dev Process a binary tree on-chain or off-chain. */
+    bool public isBinaryOnChain;
+    /** @dev The address signing the payment permission. */
+    address public signer;
+    uint256 public immutable chainId;
+    mapping(address => uint256) public signIds;
 
-    event Purchased(address user, uint256 level, uint256 quantity);
-    event RefLevelUpgraded(address user, uint256 newLevel, uint256 oldLevel);
+    event SignerChanged(address indexed oldSigner, address indexed newSigner);
 
     constructor(uint256[][] memory refLevelRate) public {
+        chainId = block.chainid;
+
         // ref sistem
         require(
             refLevelRate.length > 0,
@@ -92,21 +106,23 @@ contract ReferralSystemBsc is Ownable, Pausable {
                 BinaryTreeLib.sum(refLevelRate[i]) <= DECIMALS,
                 "Total level rate exceeds 100%"
             );
-            if (refLevelRate[i].length > tree.refLimit) {
-                tree.refLimit = refLevelRate[i].length;
+            if (refLevelRate[i].length > _tree.refLimit) {
+                _tree.refLimit = refLevelRate[i].length;
             }
         }
-        tree.refLevelRate = refLevelRate;
+        _tree.refLevelRate = refLevelRate;
 
         // binary sistem
-        tree.start = 0; // TODO
-        tree.upLimit = 0; // 0 - unlimit
-        tree.root = address(this);
-        tree.count++;
-        tree.ids[tree.count] = tree.root;
+        isBinaryOnChain = true;
 
-        BinaryTreeLib.Node storage rootNode = tree.nodes[tree.root];
-        rootNode.id = tree.count;
+        _tree.start = 0; // TODO
+        _tree.upLimit = 0; // 0 - unlimit
+        _tree.root = address(this);
+        _tree.count++;
+        _tree.ids[_tree.count] = _tree.root;
+
+        BinaryTreeLib.Node storage rootNode = _tree.nodes[_tree.root];
+        rootNode.id = _tree.count;
         rootNode.level = 0;
         rootNode.height = 1;
         rootNode.referrer = BinaryTreeLib.EMPTY;
@@ -118,24 +134,24 @@ contract ReferralSystemBsc is Ownable, Pausable {
         rootNode.partners = 0;
 
         emit BinaryTreeLib.Registration(
-            tree.root,
+            _tree.root,
             rootNode.referrer,
             rootNode.parent,
             rootNode.id,
             BinaryTreeLib.Direction.RIGHT
         );
         emit BinaryTreeLib.DirectionChange(
-            tree.root,
+            _tree.root,
             BinaryTreeLib.Direction.RIGHT
         );
     }
 
     function join(address referrer) public whenNotPaused {
-        if (!tree.exists(referrer)) {
-            referrer = tree.root;
+        if (!_tree.exists(referrer)) {
+            referrer = _tree.root;
         }
-        if (!tree.exists(_msgSender())) {
-            tree.insertNode(referrer, _msgSender());
+        if (!_tree.exists(_msgSender())) {
+            _tree.insertNode(referrer, _msgSender());
         }
     }
 
@@ -145,7 +161,7 @@ contract ReferralSystemBsc is Ownable, Pausable {
     ) external payable whenNotPaused {
         join(referrer);
 
-        uint256 currentLevel = tree.nodes[_msgSender()].level;
+        uint256 currentLevel = _tree.nodes[_msgSender()].level;
         require(
             nextLevel > currentLevel,
             "The next level must be above the current level"
@@ -155,47 +171,74 @@ contract ReferralSystemBsc is Ownable, Pausable {
 
         uint256 difference = prices[nextLevel] - prices[currentLevel];
         require(msg.value == difference, "Incorrect value");
-        emit RefLevelUpgraded(_msgSender(), nextLevel, currentLevel);
+
+        emit BinaryTreeLib.Purchased(_msgSender(), nextLevel, 1);
+        emit BinaryTreeLib.RefLevelUpgraded(
+            _msgSender(),
+            nextLevel,
+            currentLevel
+        );
 
         if (currentLevel > 0) series[currentLevel]++;
         series[nextLevel]--;
-        tree.setNodeLevel(_msgSender(), nextLevel);
-        tree.addNodeMyStats(_msgSender(), difference);
-        uint256 refPaid = tree.payReferral(_msgSender(), difference);
+        _tree.setNodeLevel(_msgSender(), nextLevel);
+        if (isBinaryOnChain) {
+            _tree.addNodeMyStats(_msgSender(), difference);
+        }
+        uint256 refPaid = _tree.payReferral(_msgSender(), difference);
 
         if (wallet != address(0)) {
             // TODO 6000/10000=60%
             uint256 valueOut = (difference * 6000) / DECIMALS;
             if ((difference - refPaid) < valueOut)
                 valueOut = difference - refPaid;
-            payable(wallet).transfer(valueOut);
+            BinaryTreeLib.sendValue(payable(wallet), valueOut);
         }
     }
 
-    function claimBinaryRewards(uint256 day) external whenNotPaused {
-        BinaryTreeLib.Node storage gn = tree.nodes[_msgSender()];
+    function claimBinaryRewards(
+        uint256 day
+    ) external whenNotPaused nonReentrant {
+        BinaryTreeLib.Node storage gn = _tree.nodes[_msgSender()];
 
-        uint256 value = BinaryTreeLib.min(
+        uint256 amount = BinaryTreeLib.min(
             gn.stats[day].left,
             gn.stats[day].right
         );
         uint256 rate = binLevelRate[gn.level];
-        value = (value * rate) / DECIMALS;
-        uint256 paid = value - tree.nodes[_msgSender()].rewards[day].bin;
-        payable(_msgSender()).transfer(paid);
-        emit BinaryTreeLib.PaidBinar(_msgSender(), paid);
+        amount = (amount * rate) / DECIMALS;
+        uint256 paid = amount - _tree.nodes[_msgSender()].rewards[day].bin;
+        BinaryTreeLib.sendValue(payable(_msgSender()), paid);
+        emit BinaryTreeLib.PaidBinar(_msgSender(), day, paid);
 
         // node stats
-        tree.addNodeRewardsBin(_msgSender(), paid);
+        _tree.addNodeRewardsBin(_msgSender(), paid);
         // tree stats
-        tree.addTreeRewardsBin(paid);
+        _tree.addTreeRewardsBin(paid);
+    }
+
+    /** @dev Receiving binary rewards when switching to off-chain counting. */
+    function claimBinaryRewardsOffChain(
+        address user,
+        uint256 amount,
+        uint256 day,
+        uint256 signId,
+        bytes memory signature
+    ) external whenNotPaused nonReentrant {
+        _checkSignature(user, amount, day, signId, signature);
+        emit BinaryTreeLib.PaidBinar(user, day, amount);
+
+        // node stats
+        _tree.addNodeRewardsBin(user, amount);
+        // tree stats
+        _tree.addTreeRewardsBin(amount);
     }
 
     function exit() external whenNotPaused {
-        uint256 currentLevel = tree.nodes[_msgSender()].level;
+        uint256 currentLevel = _tree.nodes[_msgSender()].level;
         require(currentLevel > 0, "Level 0");
         emit BinaryTreeLib.Exit(_msgSender(), currentLevel);
-        tree.setNodeLevel(_msgSender(), 0);
+        _tree.setNodeLevel(_msgSender(), 0);
     }
 
     /**
@@ -205,8 +248,8 @@ contract ReferralSystemBsc is Ownable, Pausable {
      * 2 - LEFT.
      */
     function setTreeNodeDirection(BinaryTreeLib.Direction direction) external {
-        require(tree.exists(_msgSender()), "Node does not exist");
-        tree.setNodeDirection(_msgSender(), direction);
+        require(_tree.exists(_msgSender()), "Node does not exist");
+        _tree.setNodeDirection(_msgSender(), direction);
     }
 
     /** @dev Changes the contract state: locked, unlocked. */
@@ -216,7 +259,7 @@ contract ReferralSystemBsc is Ownable, Pausable {
     }
 
     /** @dev Reducing the number of NFTs in a series/level. level: 1-15. */
-    function reduceQuantity(
+    function reduceLevelQuantity(
         uint256 level,
         uint256 quantity
     ) external onlyOwner {
@@ -224,18 +267,68 @@ contract ReferralSystemBsc is Ownable, Pausable {
         series[level] -= quantity;
     }
 
+    /** @dev Setting up a wallet for automatic payments to the Team. */
     function setWallet(address newWallet) external onlyOwner {
         wallet = newWallet;
     }
 
+    /** @dev Setting to process a binary tree on-chain or off-chain. */
+    function setBinaryOnChain(bool status) external onlyOwner {
+        isBinaryOnChain = status;
+    }
+
+    /**
+     * @dev Setting upLimit number for on-chain process.
+     * The maximum number of nodes to update statistics. If 0, then there are no limit.
+     */
+    function setUpLimit(uint256 upLimit) external onlyOwner {
+        _tree.setUpLimit(upLimit);
+    }
+
+    /** @dev Sets the address of the permission signer. */
+    function setSigner(address newSigner) external onlyOwner {
+        emit SignerChanged(signer, newSigner);
+        signer = newSigner;
+    }
+
+    function _checkSignature(
+        address user,
+        uint256 amount,
+        uint256 day,
+        uint256 signId,
+        bytes memory signature
+    ) internal {
+        require(
+            signIds[user] < signId &&
+                _signatureWallet(user, amount, day, signId, signature) ==
+                signer,
+            "Not authorized"
+        );
+        signIds[user] = signId;
+    }
+
+    function _signatureWallet(
+        address user,
+        uint256 amount,
+        uint256 day,
+        uint256 signId,
+        bytes memory signature
+    ) private view returns (address) {
+        return
+            ECDSA.recover(
+                keccak256(abi.encode(chainId, signId, user, amount, day)),
+                signature
+            );
+    }
+
     /** @dev Returns the contract balance in wei. */
-    function balance() public view returns (uint256) {
+    function balance() external view returns (uint256) {
         return address(this).balance;
     }
 
+    /** @dev Receiving funds from a smart contract account. */
     function withdraw(uint256 value) external onlyOwner {
-        require(value <= balance(), "Incorrect value");
-        payable(_msgSender()).transfer(value);
+        BinaryTreeLib.sendValue(payable(_msgSender()), value);
     }
 
     function getTreeParams()
@@ -249,11 +342,11 @@ contract ReferralSystemBsc is Ownable, Pausable {
             uint256 _day
         )
     {
-        _root = tree.root;
-        _count = tree.count;
-        _start = tree.start;
-        _upLimit = tree.upLimit;
-        _day = tree.getCurrentDay();
+        _root = _tree.root;
+        _count = _tree.count;
+        _start = _tree.start;
+        _upLimit = _tree.upLimit;
+        _day = _tree.getCurrentDay();
     }
 
     function getTreeStats()
@@ -261,40 +354,36 @@ contract ReferralSystemBsc is Ownable, Pausable {
         view
         returns (uint256 _rewardsRefTotal, uint256 _rewardsBinTotal)
     {
-        _rewardsRefTotal = tree.rewardsTotal.ref;
-        _rewardsBinTotal = tree.rewardsTotal.bin;
+        _rewardsRefTotal = _tree.rewardsTotal.ref;
+        _rewardsBinTotal = _tree.rewardsTotal.bin;
     }
 
     function getTreeStatsInDay(
         uint256 day
     ) external view returns (uint256 _rewardsRef, uint256 _rewardsBin) {
-        _rewardsRef = tree.rewards[day].ref;
-        _rewardsBin = tree.rewards[day].bin;
-    }
-
-    function setUpLimit(uint256 upLimit) external onlyOwner {
-        tree.setUpLimit(upLimit);
+        _rewardsRef = _tree.rewards[day].ref;
+        _rewardsBin = _tree.rewards[day].bin;
     }
 
     function getIdToAccount(uint256 id) external view returns (address) {
-        require(id <= tree.count, "Index out of bounds");
-        return tree.ids[id];
+        require(id <= _tree.count, "Index out of bounds");
+        return _tree.ids[id];
     }
 
     function getLastNodeLeftIn(
         address account
     ) external view returns (address) {
-        return tree.lastLeftIn(account);
+        return _tree.lastLeftIn(account);
     }
 
     function getLastNodeRightIn(
         address account
     ) external view returns (address) {
-        return tree.lastRightIn(account);
+        return _tree.lastRightIn(account);
     }
 
     function isNodeExists(address account) external view returns (bool) {
-        return tree.exists(account);
+        return _tree.exists(account);
     }
 
     function getNode(
@@ -322,7 +411,7 @@ contract ReferralSystemBsc is Ownable, Pausable {
             _left,
             _right,
             _direction
-        ) = tree.getNode(account);
+        ) = _tree.getNode(account);
     }
 
     function getNodeStats(
@@ -336,7 +425,7 @@ contract ReferralSystemBsc is Ownable, Pausable {
             uint256 _rewardsBinTotal
         )
     {
-        (_partners, _rewardsRefTotal, _rewardsBinTotal) = tree.getNodeStats(
+        (_partners, _rewardsRefTotal, _rewardsBinTotal) = _tree.getNodeStats(
             account
         );
     }
@@ -363,6 +452,6 @@ contract ReferralSystemBsc is Ownable, Pausable {
             _statsLeft,
             _statsRight,
             _statsTotal
-        ) = tree.getNodeStatsInDay(account, day);
+        ) = _tree.getNodeStatsInDay(account, day);
     }
 }
