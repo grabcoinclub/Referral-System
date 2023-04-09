@@ -200,7 +200,7 @@ library ReferralTreeLib {
             uint256 c = (value * self.refLevelRate[rn.level][i]) / DECIMALS;
             if (c > 0) {
                 totalPaid += c;
-                referrer.transfer(c);
+                sendValue(referrer, c);
                 // node stats
                 addNodeRewardsRef(self, referrer, c);
             }

@@ -181,7 +181,7 @@ contract ReferralSystemBsc is ReentrancyGuard, Ownable, Pausable {
         if (wallet != address(0)) {
             // TODO 6000/10000=60%
             uint256 valueOut = (difference * 6000) / DECIMALS;
-            if ((difference - refPaid) < valueOut)
+            if (valueOut > (difference - refPaid))
                 valueOut = difference - refPaid;
             BinaryTreeLib.sendValue(payable(wallet), valueOut);
         }

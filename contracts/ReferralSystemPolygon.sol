@@ -138,8 +138,7 @@ contract ReferralSystemPolygon is ReentrancyGuard, Ownable, Pausable {
 
         if (wallet != address(0)) {
             uint256 valueOut = difference - refPaid;
-            if (valueOut > 0)
-                ReferralTreeLib.sendValue(payable(wallet), valueOut);
+            ReferralTreeLib.sendValue(payable(wallet), valueOut);
         }
     }
 
@@ -170,12 +169,11 @@ contract ReferralSystemPolygon is ReentrancyGuard, Ownable, Pausable {
                 currentLevel
             );
         }
-
         uint256 refPaid = _tree.payReferral(_msgSender(), total);
+
         if (wallet != address(0)) {
             uint256 valueOut = total - refPaid;
-            if (valueOut > 0)
-                ReferralTreeLib.sendValue(payable(wallet), valueOut);
+            ReferralTreeLib.sendValue(payable(wallet), valueOut);
         }
     }
 
