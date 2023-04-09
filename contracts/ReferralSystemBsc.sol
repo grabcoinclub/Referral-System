@@ -354,7 +354,7 @@ contract ReferralSystemBsc is ReentrancyGuard, Ownable, Pausable {
     function claimBinaryRewards(
         uint256 day
     ) external whenNotPaused nonReentrant {
-        BinaryTreeLib.Node memory gn = _tree.nodes[_msgSender()];
+        BinaryTreeLib.Node storage gn = _tree.nodes[_msgSender()];
 
         uint256 amount = BinaryTreeLib.min(
             gn.stats[day].left,
@@ -387,7 +387,7 @@ contract ReferralSystemBsc is ReentrancyGuard, Ownable, Pausable {
         require(!isBinaryOnChain, "Not activated");
         _checkSignature(user, amount, day, signId, signature);
 
-        BinaryTreeLib.Node memory gn = _tree.nodes[user];
+        BinaryTreeLib.Node storage gn = _tree.nodes[user];
         uint256 maxDailyLimit = prices[gn.level];
         if (amount > maxDailyLimit) {
             amount = maxDailyLimit;
