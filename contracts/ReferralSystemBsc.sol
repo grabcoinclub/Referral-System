@@ -351,6 +351,35 @@ contract ReferralSystemBsc is ReentrancyGuard, Ownable, Pausable {
         }
     }
 
+    function accumulatedBinaryRewards(
+        address user,
+        uint256 day
+    ) public view returns (uint256) {
+        BinaryTreeLib.Node storage gn = _tree.nodes[user];
+
+        uint256 amount = BinaryTreeLib.min(
+            gn.stats[day].left,
+            gn.stats[day].right
+        );
+        uint256 rate = binLevelRate[gn.level];
+        amount = (amount * rate) / DECIMALS;
+        uint256 maxDailyLimit = prices[gn.level];
+        if (amount > maxDailyLimit) {
+            amount = maxDailyLimit;
+        }
+        return amount;
+    }
+
+    function availableBinaryRewards(
+        address user,
+        uint256 day
+    ) public view returns (uint256) {
+        BinaryTreeLib.Node storage gn = _tree.nodes[user];
+        uint256 amount = accumulatedBinaryRewards(user, day);
+        uint256 paid = amount - gn.rewards[day].bin;
+        return paid;
+    }
+
     function claimBinaryRewards(
         uint256 day
     ) external whenNotPaused nonReentrant {
