@@ -63,7 +63,6 @@ contract ReferralSystemBsc is ReentrancyGuard, Ownable, Pausable {
         600,
         700,
         700,
-        700,
         800,
         800,
         900,
@@ -72,6 +71,7 @@ contract ReferralSystemBsc is ReentrancyGuard, Ownable, Pausable {
         1_000,
         1_100,
         1_100,
+        1_200,
         1_200,
         1_200
     ];
