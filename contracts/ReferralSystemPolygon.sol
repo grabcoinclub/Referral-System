@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
@@ -8,7 +8,10 @@ import "./lib/ReferralTreeLib.sol";
 contract ReferralSystemPolygon is Ownable, Pausable {
     using ReferralTreeLib for ReferralTreeLib.Tree;
 
+    /** @dev Divisor for calculating percentages. */
     uint256 public constant DECIMALS = ReferralTreeLib.DECIMALS;
+
+    /** @dev The MATIC price of each level is from 1 to 16. */
     uint256[] public prices = [
         0,
         100 ether,
@@ -28,6 +31,8 @@ contract ReferralSystemPolygon is Ownable, Pausable {
         200_000 ether,
         300_000 ether
     ];
+
+    /** @dev The number of NFTs in each level/series is from 1 to 16. */
     uint256[] public series = [
         0,
         3_000,
@@ -101,11 +106,10 @@ contract ReferralSystemPolygon is Ownable, Pausable {
         }
     }
 
-    function upgrade(address referrer, uint256 nextLevel)
-        external
-        payable
-        whenNotPaused
-    {
+    function upgrade(
+        address referrer,
+        uint256 nextLevel
+    ) external payable whenNotPaused {
         join(referrer);
 
         uint256 currentLevel = tree.nodes[_msgSender()].level;
@@ -181,18 +185,17 @@ contract ReferralSystemPolygon is Ownable, Pausable {
         tree.setNodeLevel(_msgSender(), 0);
     }
 
-    function pause() external onlyOwner {
-        _pause();
+    /** @dev Changes the contract state: locked, unlocked. */
+    function pause(bool status) external onlyOwner {
+        if (status) _pause();
+        else _unpause();
     }
 
-    function unpause() external onlyOwner {
-        _unpause();
-    }
-
-    function reduceQuantity(uint256 level, uint256 quantity)
-        external
-        onlyOwner
-    {
+    /** @dev Reducing the number of NFTs in a series/level. level: 1-16. */
+    function reduceQuantity(
+        uint256 level,
+        uint256 quantity
+    ) external onlyOwner {
         require(series[level] >= quantity, "Incorrect quantity");
         series[level] -= quantity;
     }
@@ -201,6 +204,7 @@ contract ReferralSystemPolygon is Ownable, Pausable {
         wallet = newWallet;
     }
 
+    /** @dev Returns the contract balance in wei. */
     function balance() public view returns (uint256) {
         return address(this).balance;
     }
@@ -213,12 +217,7 @@ contract ReferralSystemPolygon is Ownable, Pausable {
     function getTreeParams()
         external
         view
-        returns (
-            address _root,
-            uint256 _count,
-            uint256 _start,
-            uint256 _day
-        )
+        returns (address _root, uint256 _count, uint256 _start, uint256 _day)
     {
         _root = tree.root;
         _count = tree.count;
@@ -230,11 +229,9 @@ contract ReferralSystemPolygon is Ownable, Pausable {
         _rewardsRefTotal = tree.rewardsTotal;
     }
 
-    function getTreeStatsInDay(uint256 day)
-        external
-        view
-        returns (uint256 _rewardsRef)
-    {
+    function getTreeStatsInDay(
+        uint256 day
+    ) external view returns (uint256 _rewardsRef) {
         _rewardsRef = tree.rewards[day];
     }
 
@@ -247,7 +244,9 @@ contract ReferralSystemPolygon is Ownable, Pausable {
         return tree.exists(account);
     }
 
-    function getNode(address account)
+    function getNode(
+        address account
+    )
         external
         view
         returns (
@@ -260,19 +259,16 @@ contract ReferralSystemPolygon is Ownable, Pausable {
         (_id, _level, _height, _referrer) = tree.getNode(account);
     }
 
-    function getNodeStats(address account)
-        external
-        view
-        returns (uint256 _partners, uint256 _rewardsRefTotal)
-    {
+    function getNodeStats(
+        address account
+    ) external view returns (uint256 _partners, uint256 _rewardsRefTotal) {
         (_partners, _rewardsRefTotal) = tree.getNodeStats(account);
     }
 
-    function getNodeStatsInDay(address account, uint256 day)
-        external
-        view
-        returns (uint256 _rewardsRef)
-    {
+    function getNodeStatsInDay(
+        address account,
+        uint256 day
+    ) external view returns (uint256 _rewardsRef) {
         (_rewardsRef) = tree.getNodeStatsInDay(account, day);
     }
 }

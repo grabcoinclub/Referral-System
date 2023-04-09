@@ -1,11 +1,20 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity 0.8.19;
 
 library BinaryTreeLib {
+    /** @dev The number of seconds in a day. 60*60*24=86400. */
     uint256 public constant DAY = 86_400;
+    /** @dev Divisor for calculating percentages. 100/10000=0.01=1%. */
     uint256 public constant DECIMALS = 10_000;
+    /** @dev The address of an empty tree node. */
     address public constant EMPTY = address(0);
 
+    /**
+     * @dev Distribution of partners in the binary tree.
+     * 0 - RANDOM (default);
+     * 1 - RIGHT;
+     * 2 - LEFT.
+     */
     enum Direction {
         RANDOM,
         RIGHT,
@@ -115,40 +124,40 @@ library BinaryTreeLib {
         return (block.timestamp - self.start) / DAY;
     }
 
-    function lastLeftIn(Tree storage self, address account)
-        internal
-        view
-        returns (address)
-    {
+    function lastLeftIn(
+        Tree storage self,
+        address account
+    ) internal view returns (address) {
         while (self.nodes[account].left != EMPTY) {
             account = self.nodes[account].left;
         }
         return account;
     }
 
-    function lastRightIn(Tree storage self, address account)
-        internal
-        view
-        returns (address)
-    {
+    function lastRightIn(
+        Tree storage self,
+        address account
+    ) internal view returns (address) {
         while (self.nodes[account].right != EMPTY) {
             account = self.nodes[account].right;
         }
         return account;
     }
 
-    function exists(Tree storage self, address account)
-        internal
-        view
-        returns (bool _exists)
-    {
+    function exists(
+        Tree storage self,
+        address account
+    ) internal view returns (bool _exists) {
         if (account == EMPTY) return false;
         if (account == self.root) return true;
         if (self.nodes[account].parent != EMPTY) return true;
         return false;
     }
 
-    function getNode(Tree storage self, address account)
+    function getNode(
+        Tree storage self,
+        address account
+    )
         internal
         view
         returns (
@@ -175,7 +184,10 @@ library BinaryTreeLib {
         );
     }
 
-    function getNodeStats(Tree storage self, address account)
+    function getNodeStats(
+        Tree storage self,
+        address account
+    )
         internal
         view
         returns (
@@ -218,17 +230,15 @@ library BinaryTreeLib {
     /**
      * @dev A function that returns the random distribution direction.
      */
-    function _randomDirection(Tree storage self)
-        private
-        view
-        returns (Direction direction)
-    {
+    function _randomDirection(
+        Tree storage self
+    ) private view returns (Direction direction) {
         uint256 random = uint256(
             keccak256(
                 abi.encodePacked(
                     self.count,
                     msg.sender,
-                    block.difficulty,
+                    block.prevrandao,
                     block.timestamp
                 )
             )
@@ -419,18 +429,28 @@ library BinaryTreeLib {
         return totalPaid;
     }
 
+    /** @dev Returns the sum of all numbers in an array. */
     function sum(uint256[] memory data) internal pure returns (uint256 s) {
         for (uint256 i; i < data.length; i++) {
             s += data[i];
         }
     }
 
+    /** @dev Returns the minimum number. */
     function min(uint256 a, uint256 b) internal pure returns (uint256) {
         if (a < b) return a;
         else return b;
     }
 
+    /** @dev Returns true if `account` is a contract. */
     function isContract(address account) internal view returns (bool) {
         return account.code.length > 0;
+    }
+
+    /** @dev Send value to recipient. */
+    function sendValue(address payable recipient, uint256 amount) internal {
+        require(address(this).balance >= amount, "INSUFFICIENT_BALANCE");
+        (bool success, ) = recipient.call{value: amount}("");
+        require(success, "TRANSFER_FAILED");
     }
 }

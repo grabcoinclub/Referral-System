@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
@@ -8,7 +8,10 @@ import "./lib/BinaryTreeLib.sol";
 contract ReferralSystemBsc is Ownable, Pausable {
     using BinaryTreeLib for BinaryTreeLib.Tree;
 
+    /** @dev Divisor for calculating percentages. */
     uint256 public constant DECIMALS = BinaryTreeLib.DECIMALS;
+
+    /** @dev The BNB price of each level/series is from 1 to 15. */
     uint256[] public prices = [
         0,
         0.2 ether,
@@ -27,6 +30,8 @@ contract ReferralSystemBsc is Ownable, Pausable {
         300 ether,
         500 ether
     ];
+
+    /** @dev The number of NFTs in each level/series is from 1 to 15. */
     uint256[] public series = [
         0,
         3_000,
@@ -45,6 +50,11 @@ contract ReferralSystemBsc is Ownable, Pausable {
         20,
         10
     ];
+
+    /**
+     * @dev The percentage of rewards on the binary tree in each level/series is from 1 to 15.
+     * 600/10000=0.06=6%.
+     */
     uint256[] public binLevelRate = [
         0,
         600,
@@ -129,11 +139,10 @@ contract ReferralSystemBsc is Ownable, Pausable {
         }
     }
 
-    function upgrade(address referrer, uint256 nextLevel)
-        external
-        payable
-        whenNotPaused
-    {
+    function upgrade(
+        address referrer,
+        uint256 nextLevel
+    ) external payable whenNotPaused {
         join(referrer);
 
         uint256 currentLevel = tree.nodes[_msgSender()].level;
@@ -166,8 +175,6 @@ contract ReferralSystemBsc is Ownable, Pausable {
     function claimBinaryRewards(uint256 day) external whenNotPaused {
         BinaryTreeLib.Node storage gn = tree.nodes[_msgSender()];
 
-        gn.stats[day].left;
-        gn.stats[day].right;
         uint256 value = BinaryTreeLib.min(
             gn.stats[day].left,
             gn.stats[day].right
@@ -191,23 +198,28 @@ contract ReferralSystemBsc is Ownable, Pausable {
         tree.setNodeLevel(_msgSender(), 0);
     }
 
+    /**
+     * @dev Sets the distribution of partners in the binary tree.
+     * 0 - RANDOM (default);
+     * 1 - RIGHT;
+     * 2 - LEFT.
+     */
     function setTreeNodeDirection(BinaryTreeLib.Direction direction) external {
         require(tree.exists(_msgSender()), "Node does not exist");
         tree.setNodeDirection(_msgSender(), direction);
     }
 
-    function pause() external onlyOwner {
-        _pause();
+    /** @dev Changes the contract state: locked, unlocked. */
+    function pause(bool status) external onlyOwner {
+        if (status) _pause();
+        else _unpause();
     }
 
-    function unpause() external onlyOwner {
-        _unpause();
-    }
-
-    function reduceQuantity(uint256 level, uint256 quantity)
-        external
-        onlyOwner
-    {
+    /** @dev Reducing the number of NFTs in a series/level. level: 1-15. */
+    function reduceQuantity(
+        uint256 level,
+        uint256 quantity
+    ) external onlyOwner {
         require(series[level] >= quantity, "Incorrect quantity");
         series[level] -= quantity;
     }
@@ -216,6 +228,7 @@ contract ReferralSystemBsc is Ownable, Pausable {
         wallet = newWallet;
     }
 
+    /** @dev Returns the contract balance in wei. */
     function balance() public view returns (uint256) {
         return address(this).balance;
     }
@@ -252,11 +265,9 @@ contract ReferralSystemBsc is Ownable, Pausable {
         _rewardsBinTotal = tree.rewardsTotal.bin;
     }
 
-    function getTreeStatsInDay(uint256 day)
-        external
-        view
-        returns (uint256 _rewardsRef, uint256 _rewardsBin)
-    {
+    function getTreeStatsInDay(
+        uint256 day
+    ) external view returns (uint256 _rewardsRef, uint256 _rewardsBin) {
         _rewardsRef = tree.rewards[day].ref;
         _rewardsBin = tree.rewards[day].bin;
     }
@@ -270,19 +281,15 @@ contract ReferralSystemBsc is Ownable, Pausable {
         return tree.ids[id];
     }
 
-    function getLastNodeLeftIn(address account)
-        external
-        view
-        returns (address)
-    {
+    function getLastNodeLeftIn(
+        address account
+    ) external view returns (address) {
         return tree.lastLeftIn(account);
     }
 
-    function getLastNodeRightIn(address account)
-        external
-        view
-        returns (address)
-    {
+    function getLastNodeRightIn(
+        address account
+    ) external view returns (address) {
         return tree.lastRightIn(account);
     }
 
@@ -290,7 +297,9 @@ contract ReferralSystemBsc is Ownable, Pausable {
         return tree.exists(account);
     }
 
-    function getNode(address account)
+    function getNode(
+        address account
+    )
         external
         view
         returns (
@@ -316,7 +325,9 @@ contract ReferralSystemBsc is Ownable, Pausable {
         ) = tree.getNode(account);
     }
 
-    function getNodeStats(address account)
+    function getNodeStats(
+        address account
+    )
         external
         view
         returns (
@@ -330,7 +341,10 @@ contract ReferralSystemBsc is Ownable, Pausable {
         );
     }
 
-    function getNodeStatsInDay(address account, uint256 day)
+    function getNodeStatsInDay(
+        address account,
+        uint256 day
+    )
         external
         view
         returns (

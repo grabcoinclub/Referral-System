@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity 0.8.19;
 
 library ReferralTreeLib {
+    /** @dev The number of seconds in a day. 60*60*24=86400. */
     uint256 public constant DAY = 86_400;
+    /** @dev Divisor for calculating percentages. 100/10000=0.01=1%. */
     uint256 public constant DECIMALS = 10_000;
+    /** @dev The address of an empty tree node. */
     address public constant EMPTY = address(0);
 
     /**
@@ -68,11 +71,10 @@ library ReferralTreeLib {
     );
     event Exit(address indexed account, uint256 level);
 
-    function getBalanceTotal(Tree storage self, address account)
-        internal
-        view
-        returns (uint256 balance)
-    {
+    function getBalanceTotal(
+        Tree storage self,
+        address account
+    ) internal view returns (uint256 balance) {
         for (uint256 i; i < 16; i++) {
             balance += self.nodes[account].balance[i];
         }
@@ -82,18 +84,20 @@ library ReferralTreeLib {
         return (block.timestamp - self.start) / DAY;
     }
 
-    function exists(Tree storage self, address account)
-        internal
-        view
-        returns (bool _exists)
-    {
+    function exists(
+        Tree storage self,
+        address account
+    ) internal view returns (bool _exists) {
         if (account == EMPTY) return false;
         if (account == self.root) return true;
         if (self.nodes[account].referrer != EMPTY) return true;
         return false;
     }
 
-    function getNode(Tree storage self, address account)
+    function getNode(
+        Tree storage self,
+        address account
+    )
         internal
         view
         returns (
@@ -107,11 +111,10 @@ library ReferralTreeLib {
         return (gn.id, gn.level, gn.height, gn.referrer);
     }
 
-    function getNodeStats(Tree storage self, address account)
-        internal
-        view
-        returns (uint256 _partners, uint256 _rewardsRefTotal)
-    {
+    function getNodeStats(
+        Tree storage self,
+        address account
+    ) internal view returns (uint256 _partners, uint256 _rewardsRefTotal) {
         Node storage gn = self.nodes[account];
         return (gn.partners, gn.rewardsTotal);
     }
@@ -207,18 +210,28 @@ library ReferralTreeLib {
         return totalPaid;
     }
 
+    /** @dev Returns the sum of all numbers in an array. */
     function sum(uint256[] memory data) internal pure returns (uint256 s) {
         for (uint256 i; i < data.length; i++) {
             s += data[i];
         }
     }
 
+    /** @dev Returns the minimum number. */
     function min(uint256 a, uint256 b) internal pure returns (uint256) {
         if (a < b) return a;
         else return b;
     }
 
+    /** @dev Returns true if `account` is a contract. */
     function isContract(address account) internal view returns (bool) {
         return account.code.length > 0;
+    }
+
+    /** @dev Send value to recipient. */
+    function sendValue(address payable recipient, uint256 amount) internal {
+        require(address(this).balance >= amount, "INSUFFICIENT_BALANCE");
+        (bool success, ) = recipient.call{value: amount}("");
+        require(success, "TRANSFER_FAILED");
     }
 }
