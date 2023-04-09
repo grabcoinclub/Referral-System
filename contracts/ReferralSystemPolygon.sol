@@ -107,7 +107,7 @@ contract ReferralSystemPolygon is ReentrancyGuard, Ownable, Pausable {
     function upgrade(
         address referrer,
         uint256 nextLevel
-    ) external payable whenNotPaused {
+    ) external payable whenNotPaused nonReentrant {
         join(referrer);
 
         uint256 currentLevel = _tree.nodes[_msgSender()].level;
@@ -146,7 +146,7 @@ contract ReferralSystemPolygon is ReentrancyGuard, Ownable, Pausable {
         address referrer,
         uint256 level,
         uint256 quantity
-    ) external payable whenNotPaused {
+    ) external payable whenNotPaused nonReentrant {
         join(referrer);
 
         uint256 balanceTotal = _tree.getBalanceTotal(_msgSender());

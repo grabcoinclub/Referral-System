@@ -366,9 +366,9 @@ library BinaryTreeLib {
     function addNodeRewardsRef(
         Tree storage self,
         address account,
-        uint256 value
+        uint256 value,
+        uint256 day
     ) internal {
-        uint256 day = getCurrentDay(self);
         Node storage gn = self.nodes[account];
         gn.rewardsTotal.ref += value;
         gn.rewards[day].ref += value;
@@ -377,22 +377,28 @@ library BinaryTreeLib {
     function addNodeRewardsBin(
         Tree storage self,
         address account,
-        uint256 value
+        uint256 value,
+        uint256 day
     ) internal {
-        uint256 day = getCurrentDay(self);
         Node storage gn = self.nodes[account];
         gn.rewardsTotal.bin += value;
         gn.rewards[day].bin += value;
     }
 
-    function addTreeRewardsRef(Tree storage self, uint256 value) internal {
-        uint256 day = getCurrentDay(self);
+    function addTreeRewardsRef(
+        Tree storage self,
+        uint256 value,
+        uint256 day
+    ) internal {
         self.rewardsTotal.ref += value;
         self.rewards[day].ref += value;
     }
 
-    function addTreeRewardsBin(Tree storage self, uint256 value) internal {
-        uint256 day = getCurrentDay(self);
+    function addTreeRewardsBin(
+        Tree storage self,
+        uint256 value,
+        uint256 day
+    ) internal {
         self.rewardsTotal.bin += value;
         self.rewards[day].bin += value;
     }
@@ -407,6 +413,7 @@ library BinaryTreeLib {
         address account,
         uint256 value
     ) internal returns (uint256) {
+        uint256 day = getCurrentDay(self);
         uint256 totalPaid;
         address cursor = account;
         for (uint256 i; i < self.refLimit; i++) {
@@ -421,7 +428,7 @@ library BinaryTreeLib {
                 totalPaid += c;
                 sendValue(referrer, c);
                 // node stats
-                addNodeRewardsRef(self, referrer, c);
+                addNodeRewardsRef(self, referrer, c, day);
             }
             emit PaidReferral(account, referrer, c, i + 1);
 
@@ -429,7 +436,7 @@ library BinaryTreeLib {
         }
 
         // tree stats
-        addTreeRewardsRef(self, totalPaid);
+        addTreeRewardsRef(self, totalPaid, day);
         return totalPaid;
     }
 

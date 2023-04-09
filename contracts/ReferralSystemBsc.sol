@@ -149,7 +149,7 @@ contract ReferralSystemBsc is ReentrancyGuard, Ownable, Pausable {
     function upgrade(
         address referrer,
         uint256 nextLevel
-    ) external payable whenNotPaused {
+    ) external payable whenNotPaused nonReentrant {
         join(referrer);
 
         uint256 currentLevel = _tree.nodes[_msgSender()].level;
@@ -203,9 +203,9 @@ contract ReferralSystemBsc is ReentrancyGuard, Ownable, Pausable {
         emit BinaryTreeLib.PaidBinar(_msgSender(), day, paid);
 
         // node stats
-        _tree.addNodeRewardsBin(_msgSender(), paid);
+        _tree.addNodeRewardsBin(_msgSender(), paid, day);
         // tree stats
-        _tree.addTreeRewardsBin(paid);
+        _tree.addTreeRewardsBin(paid, day);
     }
 
     /** @dev Receiving binary rewards when switching to off-chain counting. */
@@ -220,9 +220,9 @@ contract ReferralSystemBsc is ReentrancyGuard, Ownable, Pausable {
         emit BinaryTreeLib.PaidBinar(user, day, amount);
 
         // node stats
-        _tree.addNodeRewardsBin(user, amount);
+        _tree.addNodeRewardsBin(user, amount, day);
         // tree stats
-        _tree.addTreeRewardsBin(amount);
+        _tree.addTreeRewardsBin(amount, day);
     }
 
     function exit() external whenNotPaused {
