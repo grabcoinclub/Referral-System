@@ -265,7 +265,6 @@ library BinaryTreeLib {
             if (refNode.isSponsoredRight) direction = Direction.RIGHT;
             else direction = Direction.LEFT;
         }
-        refNode.partners.push(account);
 
         if (direction == Direction.RANDOM) {
             direction = _randomDirection(self); // RIGHT or LEFT
@@ -288,12 +287,19 @@ library BinaryTreeLib {
         newNode.level = 0;
         newNode.height = self.nodes[cursor].height + 1;
         newNode.referrer = referrer;
-        newNode.isSponsoredRight = refNode.isSponsoredRight; // ? пройтись нужно
+        if (refNode.partners.length == 0) {
+            // If the first partner, then we put him a referrer's value of isSponsoredRight
+            newNode.isSponsoredRight = refNode.isSponsoredRight;
+        } else {
+            // If there is already more than 1 partner.
+            newNode.isSponsoredRight = direction == Direction.RIGHT;
+        }
         newNode.parent = cursor;
         newNode.left = EMPTY;
         newNode.right = EMPTY;
         newNode.direction = Direction.RANDOM;
 
+        refNode.partners.push(account);
         emit Registration(
             account,
             newNode.referrer,
