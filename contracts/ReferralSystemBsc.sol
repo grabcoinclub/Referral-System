@@ -113,14 +113,16 @@ contract ReferralSystemBsc is ReentrancyGuard, Ownable, Pausable {
         _tree.refLevelRate = refLevelRate;
 
         // tree
-        _tree.start = 0; // TODO
+        _tree.start = 1680998400; // TODO // 2023-04-09T00:00:00.000Z = 1680998400
         _tree.upLimit = 0; // TODO 0 - unlimit
-        _tree.root = address(this);
+
+        /*_tree.root = address(this);
         _tree.count++;
         _tree.ids[_tree.count] = _tree.root;
 
         BinaryTreeLib.Node storage rootNode = _tree.nodes[_tree.root];
         rootNode.id = _tree.count;
+        rootNode.height = 1;
         rootNode.isSponsoredRight = true;
         rootNode.direction = BinaryTreeLib.Direction.RIGHT;
 
@@ -131,10 +133,172 @@ contract ReferralSystemBsc is ReentrancyGuard, Ownable, Pausable {
             rootNode.id,
             rootNode.direction
         );
-        emit BinaryTreeLib.DirectionChange(_tree.root, rootNode.direction);
+        emit BinaryTreeLib.DirectionChange(_tree.root, rootNode.direction);*/
+
+        _setup(
+            [
+                0x4A91dfbb24a42b4Dc305996c6776aD8b7934Be00,
+                0xd317cF9661748F7bB357B378B2F69afeFCd85Ff9,
+                0xe461E4bbAE1a791F5DD0C1dDa9905847D44473B6,
+                0x4958196c33ECfc18a6dD8Ff583061418d9D50ae6,
+                0x969363Ca666c018838AE8Aa7B3C6a9cEAfbf3bA9,
+                0xA71C72399D257bFf5513B91b6F5928BA6ef76Aac,
+                0xE508464C78d5085dc2A750B04C770Dc273928dE5
+            ]
+        );
+
+        wallet = 0xdf945BCC25D0f8eD32272341a34E93781eEbfe97;
 
         // binary sistem
         isBinaryOnChain = true;
+    }
+
+    function _setup(address[7] memory users) private {
+        _tree.ids[1] = users[0];
+        _tree.ids[2] = users[1];
+        _tree.ids[3] = users[2];
+        _tree.ids[4] = users[3];
+        _tree.ids[5] = users[4];
+        _tree.ids[6] = users[5];
+        _tree.ids[7] = users[6];
+
+        _tree.count = 7;
+        _tree.root = _tree.ids[1];
+
+        series[12] -= 1;
+        series[10] -= 2;
+        series[8] -= 4;
+
+        BinaryTreeLib.Node storage a1 = _tree.nodes[_tree.ids[1]];
+        a1.id = 1;
+        a1.height = 1;
+        a1.level = 12;
+        a1.referrer = BinaryTreeLib.EMPTY;
+        a1.parent = BinaryTreeLib.EMPTY;
+        a1.left = _tree.ids[2];
+        a1.right = _tree.ids[3];
+        a1.direction = BinaryTreeLib.Direction.RIGHT;
+        a1.isSponsoredRight = true;
+        a1.partners.push(_tree.ids[2]);
+        a1.partners.push(_tree.ids[3]);
+        emit BinaryTreeLib.Registration(
+            _tree.ids[1],
+            a1.referrer,
+            a1.parent,
+            a1.id,
+            a1.direction
+        );
+        emit BinaryTreeLib.DirectionChange(_tree.ids[1], a1.direction);
+
+        BinaryTreeLib.Node storage a2 = _tree.nodes[_tree.ids[2]];
+        a2.id = 2;
+        a2.height = 2;
+        a2.level = 10;
+        a2.referrer = _tree.ids[1];
+        a2.parent = _tree.ids[1];
+        a2.left = _tree.ids[4];
+        a2.right = _tree.ids[5];
+        a2.direction = BinaryTreeLib.Direction.LEFT;
+        a2.isSponsoredRight = false;
+        a2.partners.push(_tree.ids[4]);
+        a2.partners.push(_tree.ids[5]);
+        emit BinaryTreeLib.Registration(
+            _tree.ids[2],
+            a2.referrer,
+            a2.parent,
+            a2.id,
+            a2.direction
+        );
+        emit BinaryTreeLib.DirectionChange(_tree.ids[2], a2.direction);
+
+        BinaryTreeLib.Node storage a3 = _tree.nodes[_tree.ids[3]];
+        a3.id = 3;
+        a3.height = 2;
+        a3.level = 10;
+        a3.referrer = _tree.ids[1];
+        a3.parent = _tree.ids[1];
+        a3.left = _tree.ids[6];
+        a3.right = _tree.ids[7];
+        a3.direction = BinaryTreeLib.Direction.RIGHT;
+        a3.isSponsoredRight = true;
+        a3.partners.push(_tree.ids[6]);
+        a3.partners.push(_tree.ids[7]);
+        emit BinaryTreeLib.Registration(
+            _tree.ids[3],
+            a3.referrer,
+            a3.parent,
+            a3.id,
+            a3.direction
+        );
+        emit BinaryTreeLib.DirectionChange(_tree.ids[3], a3.direction);
+
+        BinaryTreeLib.Node storage a4 = _tree.nodes[_tree.ids[4]];
+        a4.id = 4;
+        a4.height = 3;
+        a4.level = 8;
+        a4.referrer = _tree.ids[2];
+        a4.parent = _tree.ids[2];
+        a4.direction = BinaryTreeLib.Direction.LEFT;
+        a4.isSponsoredRight = false;
+        emit BinaryTreeLib.Registration(
+            _tree.ids[4],
+            a4.referrer,
+            a4.parent,
+            a4.id,
+            a4.direction
+        );
+        emit BinaryTreeLib.DirectionChange(_tree.ids[4], a4.direction);
+
+        BinaryTreeLib.Node storage a5 = _tree.nodes[_tree.ids[5]];
+        a5.id = 5;
+        a5.height = 3;
+        a5.level = 8;
+        a5.referrer = _tree.ids[2];
+        a5.parent = _tree.ids[2];
+        a5.direction = BinaryTreeLib.Direction.RIGHT;
+        a5.isSponsoredRight = true;
+        emit BinaryTreeLib.Registration(
+            _tree.ids[5],
+            a5.referrer,
+            a5.parent,
+            a5.id,
+            a5.direction
+        );
+        emit BinaryTreeLib.DirectionChange(_tree.ids[5], a5.direction);
+
+        BinaryTreeLib.Node storage a6 = _tree.nodes[_tree.ids[6]];
+        a6.id = 6;
+        a6.height = 3;
+        a6.level = 8;
+        a6.referrer = _tree.ids[3];
+        a6.parent = _tree.ids[3];
+        a6.direction = BinaryTreeLib.Direction.LEFT;
+        a6.isSponsoredRight = false;
+        emit BinaryTreeLib.Registration(
+            _tree.ids[6],
+            a6.referrer,
+            a6.parent,
+            a6.id,
+            a6.direction
+        );
+        emit BinaryTreeLib.DirectionChange(_tree.ids[6], a6.direction);
+
+        BinaryTreeLib.Node storage a7 = _tree.nodes[_tree.ids[7]];
+        a7.id = 7;
+        a7.height = 3;
+        a7.level = 8;
+        a7.referrer = _tree.ids[3];
+        a7.parent = _tree.ids[3];
+        a7.direction = BinaryTreeLib.Direction.RIGHT;
+        a7.isSponsoredRight = true;
+        emit BinaryTreeLib.Registration(
+            _tree.ids[7],
+            a7.referrer,
+            a7.parent,
+            a7.id,
+            a7.direction
+        );
+        emit BinaryTreeLib.DirectionChange(_tree.ids[7], a7.direction);
     }
 
     function join(address referrer) public whenNotPaused {
@@ -190,7 +354,7 @@ contract ReferralSystemBsc is ReentrancyGuard, Ownable, Pausable {
     function claimBinaryRewards(
         uint256 day
     ) external whenNotPaused nonReentrant {
-        BinaryTreeLib.Node storage gn = _tree.nodes[_msgSender()];
+        BinaryTreeLib.Node memory gn = _tree.nodes[_msgSender()];
 
         uint256 amount = BinaryTreeLib.min(
             gn.stats[day].left,
@@ -198,7 +362,11 @@ contract ReferralSystemBsc is ReentrancyGuard, Ownable, Pausable {
         );
         uint256 rate = binLevelRate[gn.level];
         amount = (amount * rate) / DECIMALS;
-        uint256 paid = amount - _tree.nodes[_msgSender()].rewards[day].bin;
+        uint256 maxDailyLimit = prices[gn.level];
+        if (amount > maxDailyLimit) {
+            amount = maxDailyLimit;
+        }
+        uint256 paid = amount - gn.rewards[day].bin;
         BinaryTreeLib.sendValue(payable(_msgSender()), paid);
         emit BinaryTreeLib.PaidBinar(_msgSender(), day, paid);
 
@@ -216,13 +384,22 @@ contract ReferralSystemBsc is ReentrancyGuard, Ownable, Pausable {
         uint256 signId,
         bytes memory signature
     ) external whenNotPaused nonReentrant {
+        require(!isBinaryOnChain, "Not activated");
         _checkSignature(user, amount, day, signId, signature);
-        emit BinaryTreeLib.PaidBinar(user, day, amount);
+
+        BinaryTreeLib.Node memory gn = _tree.nodes[user];
+        uint256 maxDailyLimit = prices[gn.level];
+        if (amount > maxDailyLimit) {
+            amount = maxDailyLimit;
+        }
+        uint256 paid = amount - gn.rewards[day].bin;
+        BinaryTreeLib.sendValue(payable(user), paid);
+        emit BinaryTreeLib.PaidBinar(user, day, paid);
 
         // node stats
-        _tree.addNodeRewardsBin(user, amount, day);
+        _tree.addNodeRewardsBin(user, paid, day);
         // tree stats
-        _tree.addTreeRewardsBin(amount, day);
+        _tree.addTreeRewardsBin(paid, day);
     }
 
     function exit() external whenNotPaused {

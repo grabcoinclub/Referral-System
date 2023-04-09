@@ -193,7 +193,8 @@ library ReferralTreeLib {
         for (uint256 i; i < self.refLimit; i++) {
             address payable referrer = payable(self.nodes[cursor].referrer);
             Node storage rn = self.nodes[referrer];
-            if (referrer == EMPTY || referrer == self.root) {
+            //if (referrer == EMPTY || referrer == self.root) {
+            if (referrer == EMPTY) {
                 break;
             }
 

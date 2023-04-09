@@ -80,8 +80,9 @@ contract ReferralSystemPolygon is ReentrancyGuard, Ownable, Pausable {
         _tree.refLevelRate = refLevelRate;
 
         // tree
-        _tree.start = 0; // TODO
-        _tree.root = address(this);
+        _tree.start = 1680998400; // TODO // 2023-04-09T00:00:00.000Z = 1680998400
+
+        /*_tree.root = address(this);
         _tree.count++;
         _tree.ids[_tree.count] = _tree.root;
 
@@ -92,7 +93,93 @@ contract ReferralSystemPolygon is ReentrancyGuard, Ownable, Pausable {
             _tree.root,
             rootNode.referrer,
             rootNode.id
+        );*/
+
+        _setup(
+            [
+                0x4A91dfbb24a42b4Dc305996c6776aD8b7934Be00,
+                0xd317cF9661748F7bB357B378B2F69afeFCd85Ff9,
+                0xe461E4bbAE1a791F5DD0C1dDa9905847D44473B6,
+                0x4958196c33ECfc18a6dD8Ff583061418d9D50ae6,
+                0x969363Ca666c018838AE8Aa7B3C6a9cEAfbf3bA9,
+                0xA71C72399D257bFf5513B91b6F5928BA6ef76Aac,
+                0xE508464C78d5085dc2A750B04C770Dc273928dE5
+            ]
         );
+
+        wallet = 0xdf945BCC25D0f8eD32272341a34E93781eEbfe97;
+    }
+
+    function _setup(address[7] memory users) private {
+        _tree.ids[1] = users[0];
+        _tree.ids[2] = users[1];
+        _tree.ids[3] = users[2];
+        _tree.ids[4] = users[3];
+        _tree.ids[5] = users[4];
+        _tree.ids[6] = users[5];
+        _tree.ids[7] = users[6];
+
+        _tree.count = 7;
+        _tree.root = _tree.ids[1];
+
+        series[12] -= 1;
+        series[10] -= 2;
+        series[8] -= 4;
+
+        ReferralTreeLib.Node storage a1 = _tree.nodes[_tree.ids[1]];
+        a1.id = 1;
+        a1.height = 1;
+        a1.level = 12;
+        a1.referrer = ReferralTreeLib.EMPTY;
+        a1.partners.push(_tree.ids[2]);
+        a1.partners.push(_tree.ids[3]);
+        emit ReferralTreeLib.Registration(_tree.ids[1], a1.referrer, a1.id);
+
+        ReferralTreeLib.Node storage a2 = _tree.nodes[_tree.ids[2]];
+        a2.id = 2;
+        a2.height = 2;
+        a2.level = 10;
+        a2.referrer = _tree.ids[1];
+        a2.partners.push(_tree.ids[4]);
+        a2.partners.push(_tree.ids[5]);
+        emit ReferralTreeLib.Registration(_tree.ids[2], a2.referrer, a2.id);
+
+        ReferralTreeLib.Node storage a3 = _tree.nodes[_tree.ids[3]];
+        a3.id = 3;
+        a3.height = 2;
+        a3.level = 10;
+        a3.referrer = _tree.ids[1];
+        a3.partners.push(_tree.ids[6]);
+        a3.partners.push(_tree.ids[7]);
+        emit ReferralTreeLib.Registration(_tree.ids[3], a3.referrer, a3.id);
+
+        ReferralTreeLib.Node storage a4 = _tree.nodes[_tree.ids[4]];
+        a4.id = 4;
+        a4.height = 3;
+        a4.level = 8;
+        a4.referrer = _tree.ids[2];
+        emit ReferralTreeLib.Registration(_tree.ids[4], a4.referrer, a4.id);
+
+        ReferralTreeLib.Node storage a5 = _tree.nodes[_tree.ids[5]];
+        a5.id = 5;
+        a5.height = 3;
+        a5.level = 8;
+        a5.referrer = _tree.ids[2];
+        emit ReferralTreeLib.Registration(_tree.ids[5], a5.referrer, a5.id);
+
+        ReferralTreeLib.Node storage a6 = _tree.nodes[_tree.ids[6]];
+        a6.id = 6;
+        a6.height = 3;
+        a6.level = 8;
+        a6.referrer = _tree.ids[3];
+        emit ReferralTreeLib.Registration(_tree.ids[6], a6.referrer, a6.id);
+
+        ReferralTreeLib.Node storage a7 = _tree.nodes[_tree.ids[7]];
+        a7.id = 7;
+        a7.height = 3;
+        a7.level = 8;
+        a7.referrer = _tree.ids[3];
+        emit ReferralTreeLib.Registration(_tree.ids[7], a7.referrer, a7.id);
     }
 
     function join(address referrer) public whenNotPaused {
