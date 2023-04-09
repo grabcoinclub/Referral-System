@@ -14,7 +14,7 @@ library ReferralTreeLib {
      * @param id - Node id.
      * @param level - Partner level.
      * @param height - Node height from binary tree root.
-     * @param partners - Number of invited partners.
+     * @param partners - List of invited partners.
      * @param rewards - Received rewards for each day from start.
      * @param balance - How many nft of each level.
      */
@@ -23,7 +23,7 @@ library ReferralTreeLib {
         uint256 level;
         uint256 height;
         address referrer;
-        uint256 partners;
+        address[] partners;
         uint256 rewardsTotal;
         mapping(uint256 => uint256) rewards;
         mapping(uint256 => uint256) balance;
@@ -83,7 +83,7 @@ library ReferralTreeLib {
         Tree storage self,
         address account
     ) internal view returns (uint256 balance) {
-        for (uint256 i; i < 16; i++) {
+        for (uint256 i = 1; i <= 16; i++) {
             balance += self.nodes[account].balance[i];
         }
     }
@@ -118,9 +118,9 @@ library ReferralTreeLib {
     function getNodeStats(
         Tree storage self,
         address account
-    ) internal view returns (uint256 _partners, uint256 _rewardsRefTotal) {
+    ) internal view returns (uint256 _partnersTotal, uint256 _rewardsRefTotal) {
         Node storage gn = self.nodes[account];
-        return (gn.partners, gn.rewardsTotal);
+        return (gn.partners.length, gn.rewardsTotal);
     }
 
     function getNodeStatsInDay(
@@ -141,13 +141,13 @@ library ReferralTreeLib {
 
         self.count++;
         self.ids[self.count] = account;
+        self.nodes[referrer].partners.push(account);
 
         Node storage newNode = self.nodes[account];
         newNode.id = self.count;
         newNode.level = 0;
         newNode.height = self.nodes[referrer].height + 1;
         newNode.referrer = referrer;
-        newNode.partners = 0;
 
         emit Registration(account, newNode.referrer, newNode.id);
     }

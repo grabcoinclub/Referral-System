@@ -48,7 +48,7 @@ library BinaryTreeLib {
      * @param left - Node on the left.
      * @param right - Node on the right.
      * @param direction - Referral distribution by tree branches.
-     * @param partners - Number of invited partners.
+     * @param partners - List of invited partners.
      * @param stats - Statistics for each day from start.
      * @param rewards - Received rewards for each day from start.
      */
@@ -62,7 +62,7 @@ library BinaryTreeLib {
         address left;
         address right;
         Direction direction;
-        uint256 partners;
+        address[] partners;
         NodeRewards rewardsTotal;
         mapping(uint256 => NodeStats) stats;
         mapping(uint256 => NodeRewards) rewards;
@@ -195,13 +195,13 @@ library BinaryTreeLib {
         internal
         view
         returns (
-            uint256 _partners,
+            uint256 _partnersTotal,
             uint256 _rewardsRefTotal,
             uint256 _rewardsBinTotal
         )
     {
         Node storage gn = self.nodes[account];
-        return (gn.partners, gn.rewardsTotal.ref, gn.rewardsTotal.bin);
+        return (gn.partners.length, gn.rewardsTotal.ref, gn.rewardsTotal.bin);
     }
 
     function getNodeStatsInDay(
@@ -261,10 +261,11 @@ library BinaryTreeLib {
         Direction direction = self.nodes[referrer].direction;
 
         Node storage refNode = self.nodes[referrer];
-        if (refNode.partners++ == 0) {
+        if (refNode.partners.length == 0) {
             if (refNode.isSponsoredRight) direction = Direction.RIGHT;
             else direction = Direction.LEFT;
         }
+        refNode.partners.push(account);
 
         if (direction == Direction.RANDOM) {
             direction = _randomDirection(self); // RIGHT or LEFT
@@ -287,12 +288,11 @@ library BinaryTreeLib {
         newNode.level = 0;
         newNode.height = self.nodes[cursor].height + 1;
         newNode.referrer = referrer;
-        newNode.isSponsoredRight = refNode.isSponsoredRight;
+        newNode.isSponsoredRight = refNode.isSponsoredRight; // ? пройтись нужно
         newNode.parent = cursor;
         newNode.left = EMPTY;
         newNode.right = EMPTY;
         newNode.direction = Direction.RANDOM;
-        newNode.partners = 0;
 
         emit Registration(
             account,

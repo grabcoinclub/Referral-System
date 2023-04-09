@@ -87,10 +87,6 @@ contract ReferralSystemPolygon is ReentrancyGuard, Ownable, Pausable {
 
         ReferralTreeLib.Node storage rootNode = _tree.nodes[_tree.root];
         rootNode.id = _tree.count;
-        rootNode.level = 0;
-        rootNode.height = 1;
-        rootNode.referrer = ReferralTreeLib.EMPTY;
-        rootNode.partners = 0;
 
         emit ReferralTreeLib.Registration(
             _tree.root,
@@ -187,7 +183,7 @@ contract ReferralSystemPolygon is ReentrancyGuard, Ownable, Pausable {
         uint256 currentLevel = _tree.nodes[_msgSender()].level;
         require(currentLevel > 0, "Level 0");
 
-        for (uint256 i; i < 16; i++) {
+        for (uint256 i = 1; i <= 16; i++) {
             uint256 balanceTotal = _tree.nodes[_msgSender()].balance[i];
             if (balanceTotal > 0) {
                 for (uint256 j; j < balanceTotal; j++) {
@@ -225,7 +221,7 @@ contract ReferralSystemPolygon is ReentrancyGuard, Ownable, Pausable {
     }
 
     /** @dev Receiving funds from a smart contract account. */
-    function withdraw(uint256 value) external onlyOwner {
+    function withdraw(uint256 value) external onlyOwner nonReentrant {
         ReferralTreeLib.sendValue(payable(_msgSender()), value);
     }
 
@@ -274,10 +270,27 @@ contract ReferralSystemPolygon is ReentrancyGuard, Ownable, Pausable {
         (_id, _level, _height, _referrer) = _tree.getNode(account);
     }
 
+    // [lvl_0, lvl_1, ..., lvl_16]
+    function getNodeBalances(
+        address account
+    ) external view returns (uint256[] memory) {
+        uint256[] memory balances = new uint256[](17);
+        for (uint256 i = 1; i <= 16; i++) {
+            balances[i] = _tree.nodes[account].balance[i];
+        }
+        return balances;
+    }
+
+    function getNodeBalanceTotal(
+        address account
+    ) external view returns (uint256) {
+        return _tree.getBalanceTotal(account);
+    }
+
     function getNodeStats(
         address account
-    ) external view returns (uint256 _partners, uint256 _rewardsRefTotal) {
-        (_partners, _rewardsRefTotal) = _tree.getNodeStats(account);
+    ) external view returns (uint256 _partnersTotal, uint256 _rewardsRefTotal) {
+        (_partnersTotal, _rewardsRefTotal) = _tree.getNodeStats(account);
     }
 
     function getNodeStatsInDay(
@@ -285,5 +298,23 @@ contract ReferralSystemPolygon is ReentrancyGuard, Ownable, Pausable {
         uint256 day
     ) external view returns (uint256 _rewardsRef) {
         (_rewardsRef) = _tree.getNodeStatsInDay(account, day);
+    }
+
+    function getNodePartners(
+        address account,
+        uint256 index,
+        uint256 limit
+    ) external view returns (address[] memory _partners) {
+        uint256 count = _tree.nodes[account].partners.length;
+        require(index < count, "Index out of bounds");
+        uint256 size = limit;
+        if ((index + limit) > count) {
+            size = count - index;
+        }
+        address[] memory partners = new address[](size);
+        for (uint256 i = 0; i < size; i++) {
+            partners[i] = _tree.nodes[account].partners[index + i];
+        }
+        return partners;
     }
 }

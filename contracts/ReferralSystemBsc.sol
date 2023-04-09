@@ -112,38 +112,29 @@ contract ReferralSystemBsc is ReentrancyGuard, Ownable, Pausable {
         }
         _tree.refLevelRate = refLevelRate;
 
-        // binary sistem
-        isBinaryOnChain = true;
-
+        // tree
         _tree.start = 0; // TODO
-        _tree.upLimit = 0; // 0 - unlimit
+        _tree.upLimit = 0; // TODO 0 - unlimit
         _tree.root = address(this);
         _tree.count++;
         _tree.ids[_tree.count] = _tree.root;
 
         BinaryTreeLib.Node storage rootNode = _tree.nodes[_tree.root];
         rootNode.id = _tree.count;
-        rootNode.level = 0;
-        rootNode.height = 1;
-        rootNode.referrer = BinaryTreeLib.EMPTY;
         rootNode.isSponsoredRight = true;
-        rootNode.parent = BinaryTreeLib.EMPTY;
-        rootNode.left = BinaryTreeLib.EMPTY;
-        rootNode.right = BinaryTreeLib.EMPTY;
         rootNode.direction = BinaryTreeLib.Direction.RIGHT;
-        rootNode.partners = 0;
 
         emit BinaryTreeLib.Registration(
             _tree.root,
             rootNode.referrer,
             rootNode.parent,
             rootNode.id,
-            BinaryTreeLib.Direction.RIGHT
+            rootNode.direction
         );
-        emit BinaryTreeLib.DirectionChange(
-            _tree.root,
-            BinaryTreeLib.Direction.RIGHT
-        );
+        emit BinaryTreeLib.DirectionChange(_tree.root, rootNode.direction);
+
+        // binary sistem
+        isBinaryOnChain = true;
     }
 
     function join(address referrer) public whenNotPaused {
@@ -327,7 +318,7 @@ contract ReferralSystemBsc is ReentrancyGuard, Ownable, Pausable {
     }
 
     /** @dev Receiving funds from a smart contract account. */
-    function withdraw(uint256 value) external onlyOwner {
+    function withdraw(uint256 value) external onlyOwner nonReentrant {
         BinaryTreeLib.sendValue(payable(_msgSender()), value);
     }
 
@@ -420,14 +411,13 @@ contract ReferralSystemBsc is ReentrancyGuard, Ownable, Pausable {
         external
         view
         returns (
-            uint256 _partners,
+            uint256 _partnersTotal,
             uint256 _rewardsRefTotal,
             uint256 _rewardsBinTotal
         )
     {
-        (_partners, _rewardsRefTotal, _rewardsBinTotal) = _tree.getNodeStats(
-            account
-        );
+        (_partnersTotal, _rewardsRefTotal, _rewardsBinTotal) = _tree
+            .getNodeStats(account);
     }
 
     function getNodeStatsInDay(
@@ -453,5 +443,23 @@ contract ReferralSystemBsc is ReentrancyGuard, Ownable, Pausable {
             _statsRight,
             _statsTotal
         ) = _tree.getNodeStatsInDay(account, day);
+    }
+
+    function getNodePartners(
+        address account,
+        uint256 index,
+        uint256 limit
+    ) external view returns (address[] memory _partners) {
+        uint256 count = _tree.nodes[account].partners.length;
+        require(index < count, "Index out of bounds");
+        uint256 size = limit;
+        if ((index + limit) > count) {
+            size = count - index;
+        }
+        address[] memory partners = new address[](size);
+        for (uint256 i = 0; i < size; i++) {
+            partners[i] = _tree.nodes[account].partners[index + i];
+        }
+        return partners;
     }
 }
