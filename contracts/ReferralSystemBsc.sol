@@ -4,10 +4,13 @@ pragma solidity 0.8.19;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./lib/BinaryTreeLib.sol";
 
-contract ReferralSystemBsc is ReentrancyGuard, Ownable, Pausable {
+contract ReferralSystemBsc is EIP712, ReentrancyGuard, Ownable, Pausable {
+    using Counters for Counters.Counter;
     using BinaryTreeLib for BinaryTreeLib.Tree;
 
     /** @dev Divisor for calculating percentages. */
@@ -88,15 +91,15 @@ contract ReferralSystemBsc is ReentrancyGuard, Ownable, Pausable {
     bool public isBinaryOnChain;
     /** @dev The address signing the payment permission. */
     address public signer;
-    uint256 public immutable chainId;
-    mapping(address => uint256) public signIds;
+    mapping(address => Counters.Counter) private _nonces;
+    bytes32 private constant _WITHDRAW_TYPEHASH =
+        keccak256("claimBinaryRewardsOffChain(address user,uint256 amount,uint256 day,uint256 nonce)");
 
     event SignerChanged(address indexed oldSigner, address indexed newSigner);
 
-    constructor(uint256[][] memory refLevelRate) public {
-        chainId = block.chainid;
+    constructor(uint256[][] memory refLevelRate) EIP712("Referral System", "1") {
 
-        // ref sistem
+        // ref system
         require(
             refLevelRate.length > 0,
             "Referral levels should be at least one"
@@ -113,210 +116,49 @@ contract ReferralSystemBsc is ReentrancyGuard, Ownable, Pausable {
         _tree.refLevelRate = refLevelRate;
 
         // tree
-        _tree.start = 1680998400; // TODO // 2023-04-09T00:00:00.000Z = 1680998400
-        _tree.upLimit = 0; // TODO 0 - unlimit
-
-        /*_tree.root = address(this);
-        _tree.count++;
-        _tree.ids[_tree.count] = _tree.root;
-
-        BinaryTreeLib.Node storage rootNode = _tree.nodes[_tree.root];
-        rootNode.id = _tree.count;
-        rootNode.height = 1;
-        rootNode.isSponsoredRight = true;
-        rootNode.direction = BinaryTreeLib.Direction.RIGHT;
-
-        emit BinaryTreeLib.Registration(
-            _tree.root,
-            rootNode.referrer,
-            rootNode.parent,
-            rootNode.id,
-            rootNode.direction
-        );
-        emit BinaryTreeLib.DirectionChange(_tree.root, rootNode.direction);*/
-
-        _setup(
-            [
-                0x4A91dfbb24a42b4Dc305996c6776aD8b7934Be00,
-                0xd317cF9661748F7bB357B378B2F69afeFCd85Ff9,
-                0xe461E4bbAE1a791F5DD0C1dDa9905847D44473B6,
-                0x4958196c33ECfc18a6dD8Ff583061418d9D50ae6,
-                0x969363Ca666c018838AE8Aa7B3C6a9cEAfbf3bA9,
-                0xA71C72399D257bFf5513B91b6F5928BA6ef76Aac,
-                0xE508464C78d5085dc2A750B04C770Dc273928dE5
-            ]
-        );
+        _tree.start = 1680998400; // 2023-04-09T00:00:00.000Z = 1680998400
+        _tree.upLimit = 0; // 0 - unlimited
 
         wallet = 0xdf945BCC25D0f8eD32272341a34E93781eEbfe97;
 
-        // binary sistem
+        // binary system
         isBinaryOnChain = true;
     }
 
-    function _setup(address[7] memory users) private {
-        _tree.ids[1] = users[0];
-        _tree.ids[2] = users[1];
-        _tree.ids[3] = users[2];
-        _tree.ids[4] = users[3];
-        _tree.ids[5] = users[4];
-        _tree.ids[6] = users[5];
-        _tree.ids[7] = users[6];
-
-        _tree.count = 7;
-        _tree.root = _tree.ids[1];
-
-        series[12] -= 1;
-        series[10] -= 2;
-        series[8] -= 4;
-
-        BinaryTreeLib.Node storage a1 = _tree.nodes[_tree.ids[1]];
-        a1.id = 1;
-        a1.height = 1;
-        a1.level = 12;
-        a1.referrer = BinaryTreeLib.EMPTY;
-        a1.parent = BinaryTreeLib.EMPTY;
-        a1.left = _tree.ids[2];
-        a1.right = _tree.ids[3];
-        a1.direction = BinaryTreeLib.Direction.RIGHT;
-        a1.isSponsoredRight = true;
-        a1.partners.push(_tree.ids[2]);
-        a1.partners.push(_tree.ids[3]);
-        emit BinaryTreeLib.Registration(
-            _tree.ids[1],
-            a1.referrer,
-            a1.parent,
-            a1.id,
-            a1.direction
-        );
-        emit BinaryTreeLib.DirectionChange(_tree.ids[1], a1.direction);
-
-        BinaryTreeLib.Node storage a2 = _tree.nodes[_tree.ids[2]];
-        a2.id = 2;
-        a2.height = 2;
-        a2.level = 10;
-        a2.referrer = _tree.ids[1];
-        a2.parent = _tree.ids[1];
-        a2.left = _tree.ids[4];
-        a2.right = _tree.ids[5];
-        a2.direction = BinaryTreeLib.Direction.LEFT;
-        a2.isSponsoredRight = false;
-        a2.partners.push(_tree.ids[4]);
-        a2.partners.push(_tree.ids[5]);
-        emit BinaryTreeLib.Registration(
-            _tree.ids[2],
-            a2.referrer,
-            a2.parent,
-            a2.id,
-            a2.direction
-        );
-        emit BinaryTreeLib.DirectionChange(_tree.ids[2], a2.direction);
-
-        BinaryTreeLib.Node storage a3 = _tree.nodes[_tree.ids[3]];
-        a3.id = 3;
-        a3.height = 2;
-        a3.level = 10;
-        a3.referrer = _tree.ids[1];
-        a3.parent = _tree.ids[1];
-        a3.left = _tree.ids[6];
-        a3.right = _tree.ids[7];
-        a3.direction = BinaryTreeLib.Direction.RIGHT;
-        a3.isSponsoredRight = true;
-        a3.partners.push(_tree.ids[6]);
-        a3.partners.push(_tree.ids[7]);
-        emit BinaryTreeLib.Registration(
-            _tree.ids[3],
-            a3.referrer,
-            a3.parent,
-            a3.id,
-            a3.direction
-        );
-        emit BinaryTreeLib.DirectionChange(_tree.ids[3], a3.direction);
-
-        BinaryTreeLib.Node storage a4 = _tree.nodes[_tree.ids[4]];
-        a4.id = 4;
-        a4.height = 3;
-        a4.level = 8;
-        a4.referrer = _tree.ids[2];
-        a4.parent = _tree.ids[2];
-        a4.direction = BinaryTreeLib.Direction.LEFT;
-        a4.isSponsoredRight = false;
-        emit BinaryTreeLib.Registration(
-            _tree.ids[4],
-            a4.referrer,
-            a4.parent,
-            a4.id,
-            a4.direction
-        );
-        emit BinaryTreeLib.DirectionChange(_tree.ids[4], a4.direction);
-
-        BinaryTreeLib.Node storage a5 = _tree.nodes[_tree.ids[5]];
-        a5.id = 5;
-        a5.height = 3;
-        a5.level = 8;
-        a5.referrer = _tree.ids[2];
-        a5.parent = _tree.ids[2];
-        a5.direction = BinaryTreeLib.Direction.RIGHT;
-        a5.isSponsoredRight = true;
-        emit BinaryTreeLib.Registration(
-            _tree.ids[5],
-            a5.referrer,
-            a5.parent,
-            a5.id,
-            a5.direction
-        );
-        emit BinaryTreeLib.DirectionChange(_tree.ids[5], a5.direction);
-
-        BinaryTreeLib.Node storage a6 = _tree.nodes[_tree.ids[6]];
-        a6.id = 6;
-        a6.height = 3;
-        a6.level = 8;
-        a6.referrer = _tree.ids[3];
-        a6.parent = _tree.ids[3];
-        a6.direction = BinaryTreeLib.Direction.LEFT;
-        a6.isSponsoredRight = false;
-        emit BinaryTreeLib.Registration(
-            _tree.ids[6],
-            a6.referrer,
-            a6.parent,
-            a6.id,
-            a6.direction
-        );
-        emit BinaryTreeLib.DirectionChange(_tree.ids[6], a6.direction);
-
-        BinaryTreeLib.Node storage a7 = _tree.nodes[_tree.ids[7]];
-        a7.id = 7;
-        a7.height = 3;
-        a7.level = 8;
-        a7.referrer = _tree.ids[3];
-        a7.parent = _tree.ids[3];
-        a7.direction = BinaryTreeLib.Direction.RIGHT;
-        a7.isSponsoredRight = true;
-        emit BinaryTreeLib.Registration(
-            _tree.ids[7],
-            a7.referrer,
-            a7.parent,
-            a7.id,
-            a7.direction
-        );
-        emit BinaryTreeLib.DirectionChange(_tree.ids[7], a7.direction);
+    function joinByAdmin(address referrer, address referee) public onlyOwner {
+        _join(referrer, referee);
     }
 
-    function join(address referrer) public whenNotPaused {
+    function join(address referrer) public {
+        _join(referrer, _msgSender());
+    }
+
+    function _join(address referrer, address referee) internal whenNotPaused {
         if (!_tree.exists(referrer)) {
             referrer = _tree.root;
         }
-        if (!_tree.exists(_msgSender())) {
-            _tree.insertNode(referrer, _msgSender());
+        if (!_tree.exists(referee)) {
+            _tree.insertNode(referrer, referee);
         }
     }
 
-    function upgrade(
-        address referrer,
-        uint256 nextLevel
-    ) external payable whenNotPaused nonReentrant {
-        join(referrer);
+    function upgradeByAdmin(address user, uint256 nextLevel) external onlyOwner {
+        _upgrade(user, nextLevel);
+    }
 
+    function upgrade(uint256 nextLevel) external payable {
         uint256 currentLevel = _tree.nodes[_msgSender()].level;
+        uint256 difference = prices[nextLevel] - prices[currentLevel];
+        require(msg.value == difference, "Incorrect value");
+
+        _upgrade(_msgSender(), nextLevel);
+    }
+
+    function _upgrade(address user, uint256 nextLevel) internal whenNotPaused nonReentrant {
+        require(_tree.exists(user), "Node does not exist");
+
+        uint256 currentLevel = _tree.nodes[user].level;
+        uint256 difference = prices[nextLevel] - prices[currentLevel];
         require(
             nextLevel > currentLevel,
             "The next level must be above the current level"
@@ -324,27 +166,19 @@ contract ReferralSystemBsc is ReentrancyGuard, Ownable, Pausable {
         require(nextLevel < series.length, "Incorrect next level");
         require(series[nextLevel] > 0, "Next level is over");
 
-        uint256 difference = prices[nextLevel] - prices[currentLevel];
-        require(msg.value == difference, "Incorrect value");
-
-        emit BinaryTreeLib.Purchased(_msgSender(), nextLevel, 1);
-        emit BinaryTreeLib.RefLevelUpgraded(
-            _msgSender(),
-            nextLevel,
-            currentLevel
-        );
+        emit BinaryTreeLib.Purchased(user, nextLevel, 1);
+        emit BinaryTreeLib.RefLevelUpgraded(user, nextLevel, currentLevel);
 
         if (currentLevel > 0) series[currentLevel]++;
         series[nextLevel]--;
-        _tree.setNodeLevel(_msgSender(), nextLevel);
+        _tree.setNodeLevel(user, nextLevel);
         if (isBinaryOnChain) {
-            _tree.addNodeMyStats(_msgSender(), difference);
+            _tree.addNodeMyStats(user, difference);
         }
-        uint256 refPaid = _tree.payReferral(_msgSender(), difference);
+        uint256 refPaid = _tree.payReferral(user, difference);
 
         if (wallet != address(0)) {
-            // TODO 6000/10000=60%
-            uint256 valueOut = (difference * 6000) / DECIMALS;
+            uint256 valueOut = (difference * 6000) / DECIMALS; // 6000/10000=60%
             if (valueOut > (difference - refPaid))
                 valueOut = difference - refPaid;
             BinaryTreeLib.sendValue(payable(wallet), valueOut);
@@ -410,11 +244,15 @@ contract ReferralSystemBsc is ReentrancyGuard, Ownable, Pausable {
         address user,
         uint256 amount,
         uint256 day,
-        uint256 signId,
         bytes memory signature
     ) external whenNotPaused nonReentrant {
         require(!isBinaryOnChain, "Not activated");
-        _checkSignature(user, amount, day, signId, signature);
+
+        bytes32 structHash = keccak256(
+            abi.encode(_WITHDRAW_TYPEHASH, msg.sender, amount, day, _useNonce(msg.sender))
+        );
+        bytes32 hash = _hashTypedDataV4(structHash);
+        require(ECDSA.recover(hash, signature) == signer, "Invalid signer");
 
         BinaryTreeLib.Node storage gn = _tree.nodes[user];
         uint256 maxDailyLimit = prices[gn.level];
@@ -488,34 +326,16 @@ contract ReferralSystemBsc is ReentrancyGuard, Ownable, Pausable {
         signer = newSigner;
     }
 
-    function _checkSignature(
-        address user,
-        uint256 amount,
-        uint256 day,
-        uint256 signId,
-        bytes memory signature
-    ) internal {
-        require(
-            signIds[user] < signId &&
-                _signatureWallet(user, amount, day, signId, signature) ==
-                signer,
-            "Not authorized"
-        );
-        signIds[user] = signId;
+    /** @dev Returns the nonce for the owner. */
+    function nonces(address owner) public view returns (uint256) {
+        return _nonces[owner].current();
     }
 
-    function _signatureWallet(
-        address user,
-        uint256 amount,
-        uint256 day,
-        uint256 signId,
-        bytes memory signature
-    ) private view returns (address) {
-        return
-            ECDSA.recover(
-                keccak256(abi.encode(chainId, signId, user, amount, day)),
-                signature
-            );
+    /** @dev "Consume a nonce": return the current value and increment. */
+    function _useNonce(address owner) internal virtual returns (uint256 current) {
+        Counters.Counter storage nonce = _nonces[owner];
+        current = nonce.current();
+        nonce.increment();
     }
 
     /** @dev Returns the contract balance in wei. */
